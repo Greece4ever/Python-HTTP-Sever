@@ -2,8 +2,7 @@ import socket
 from typing import Union
 import status
 from datetime import datetime
-from pythematics.random import choice
-from routes import URLS
+import re
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -26,15 +25,14 @@ class Server:
                 HEADERS[spl[0].strip()] = spl[1].strip()
             return HEADERS
 
-    def AwaitRequest(self):
+    def AwaitRequest(self,URLS : dict):
         while True:
             self.connection.listen(1)
             address : tuple
             client,address = self.connection.accept()
             request = client.recv(1024)
             if len(request) == 0:
-                client.send(choice(status.EXCEPTIONS).__call__("<b>No Data Was Provided</b>"))
-                print(f' Unknown | {str(datetime.now())} : {address}')
+                client.send(status.Http404().__call__(""))
                 continue
             headers = self.ParseHeaders(request)
             print(f'{headers["method"]} | {str(datetime.now())} : {address}')
@@ -46,7 +44,4 @@ class Server:
                 client.send(URLS.get(target).__call__(headers))
             client.close()
 
-HTTP = Server()
-HTTP.AwaitRequest() 
-                
 
