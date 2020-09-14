@@ -41,7 +41,12 @@ class Server:
             if not target in URLS:
                 client.send(status.Http404.__call__("<b>Page {} Was not Found (404 Status Code)</b>".format(target)))
             else:
-                client.send(URLS.get(target).__call__(headers))
+                try:
+                    client.send(URLS.get(target).__call__(headers))
+                except Exception as error:
+                    print(f'[ERROR] : {error}')
+                    client.send(status.Http500().__call__("<h1>Internal Server Error</h1>"))
+
             client.close()
 
 

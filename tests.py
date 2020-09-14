@@ -1,24 +1,29 @@
 from server import Server
-from routes import View,template,static
+from routes import View,template,static,ApiView
 import status
-import magic
 
 class Home(View):
     def GET(self,request):
         return status.Http200().__call__(template("index.html")) 
 
-class StaticDog(View):
+class StaticBinary(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(static('last_Words.PNG'))
+        return status.HttpBinary().__call__(static('ATETOKOUMPOS.m4v'),"ATETOKOUMPOS.m4v")
+
+class ShitJson(ApiView):
+    def GET(self,request):
+        return status.HttpJson().__call__({"hello" : 1},200)
 
 home = Home()
-dog = StaticDog()
-
-print(magic.from_file("last_Words.png"))
+sta = StaticBinary()
+rest = ApiView()
+gg = ShitJson()
 
 URLS : dict = {
     "/" : home,
-    "/dog" : dog
+    "/static" : sta,
+    "/peos" : rest,
+    '/another' : gg
 }
 
 HTTP_SERVER = Server()
