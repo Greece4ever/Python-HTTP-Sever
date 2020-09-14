@@ -40,15 +40,21 @@ class Http200(Exception):
                 +b"\n" 
                 +template.encode())    
 
-class HttpBinary(Exception):
+class HttpImage(Exception):
     @classmethod
-    def __call__(self,template,ending):
-        ending = ending.split(".")[-1]
+    def __call__(self,template):
         return (b"HTTP/1.1 200 OK\n"
-                +b"Content-Type: image/jpeg\n"
+                +b"Content-Type: image/png\n"
                 +b"\n" 
                 +template)
 
+class HttpAudio(Exception):
+    @classmethod
+    def __call__(self,template):
+        return (b"HTTP/1.1 200 OK\n"
+                +b"Content-Type: audio/mpeg\n"
+                +b"\n" 
+                +template)
 
 class Http201(Exception):
     @classmethod
