@@ -2,12 +2,16 @@ import socket
 from typing import Union
 import status
 from datetime import datetime
+from pythematics.random import choice
+from routes import URLS
 
 LOCALHOST : str = "127.0.0.1"
+HTTP_PORT : int = 80
 
 class Server:
-    def __init__(self,host : str = LOCALHOST):
-        self.adress = (host,80)
+    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT):
+        print(f"Starting local  Server on {host}:{port}")
+        self.adress = (host,port)
         self.connection = socket.socket()
         self.connection.bind(self.adress)
     
@@ -24,23 +28,23 @@ class Server:
 
     def AwaitRequest(self):
         while True:
-            try:
-                self.connection.listen(1)
-                address : tuple
-                client,address = self.connection.accept()
-                request = client.recv(1024)
-                headers = self.ParseHeaders(request)
-                print(f'{headers["method"]} | {str(datetime.now())} : {address}')
-                # request = self.ParseHeaders(request.decode('utf-8'))
-                # print(f'{request["method"]} - at {address}')
-                # print(request)
-                client.send(b"HTTP/1.1 403 Forbidden\n"
-                        +b"Content-Type: text/html\n"
-                        +b"\n" # Important!
-                        +b"<html><body>Hello World</body></html>\n")
-                client.close()
-            except KeyboardInterrupt:
-                break
+            self.connection.listen(1)
+            address : tuple
+            client,address = self.connection.accept()
+            request = client.recv(1024)
+            if len(request) == 0:
+                client.send(choice(status.EXCEPTIONS).__call__("<b>No Data Was Provided</b>"))
+                print(f' Unknown | {str(datetime.now())} : {address}')
+                continue
+            headers = self.ParseHeaders(request)
+            print(f'{headers["method"]} | {str(datetime.now())} : {address}')
+            URL = headers["method"]
+            target = URL.split(" ")[1]
+            if not target in URLS:
+                client.send(status.Http404.__call__("<b>Page {} Was not Found (404 Status Code)</b>".format(target)))
+            else:
+                client.send(URLS.get(target).__call__(headers))
+            client.close()
 
 HTTP = Server()
 HTTP.AwaitRequest() 

@@ -1,3 +1,10 @@
+""""
+    All HTTP Response codes classes
+    to use one of them you can call them inside the method
+    using the .__call__ method and the html you want to render
+"""
+
+
 class Http100(Exception):
     @classmethod
     def __call__(self,template):
@@ -536,3 +543,67 @@ class Http511(Exception):
                 +b"Content-Type: text/html\n"
                 +b"\n" 
                 +template.encode())    
+
+
+EXCEPTIONS : list = [
+    Http100(),
+    Http101(),
+    Http2xx(),
+    Http200(),
+    Http201(),
+    Http202(),
+    Http203(),
+    Http204(),
+    Http205(),
+    Http206(),
+    Http3xx(),
+    Http300(),
+    Http301(),
+    Http302(),
+    Http303(),
+    Http304(),
+    Http305(),
+    Http307(),
+    Http4xx(),
+    Http400(),
+    Http401(),
+    Http402(),
+    Http403(),
+    Http404(),
+    Http405(),
+    Http406(),
+    Http407(),
+    Http408(),
+    Http409(),
+    Http410(),
+    Http411(),
+    Http412(),
+    Http413(),
+    Http414(),
+    Http415(),
+    Http416(),
+    Http417(),
+    Http418(),
+    Http426(),
+    Http5xx(),
+    Http500(),
+    Http501(),
+    Http502(),
+    Http503(),
+    Http504(),
+    Http505(),
+    Http102(),
+    Http207(),
+    Http226(),
+    Http308(),
+    Http422(),
+    Http423(),
+    Http424(),
+    Http428(),
+    Http429(),
+    Http431(),
+    Http451(),
+    Http506(),
+    Http507(),
+    Http511()
+] 
