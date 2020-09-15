@@ -47,7 +47,7 @@ t.start()
 ```
 if you want to return **binary** data or data of a specific `Content-Type` attribute like **JavaScript**, **.PNG**, .**MP3** or whatever else, you can you the `status.HttpBinary().__call__(static("Path/To/File"),"Path/To/File")` and if you want to load an **HTML** page from inside a directory you put the **relative** or **absolute** path to the `template` function
 
-```
+```python
 from routes import View,static,template
 from server import HttpServer
 import status
@@ -70,7 +70,7 @@ Because when you run a **Websocket** server you're most likely going to have an 
 
 Each **Websocket** server must inherit from the base `WebsocketServer` class and there you can redefine the following methods `onConnect` on client connection , `onExit` on client exit , `onMessage` when a message is received
 
-```
+```python
 from server import WebsocketServer
 
 class MyCustomSocket(WebsocketServer):
@@ -90,7 +90,7 @@ class MyCustomSocket(WebsocketServer):
 
 and because create a **Websocket** server is useless if you do not already have an **HTTP** server running 
 
-```
+```python
 class Chat(View):
     def GET(self,request):
         return status.Http200().__call__(template("index.html")) #Render index.html
@@ -132,7 +132,7 @@ t2.start()
 
 To run the server all you need to do is **execute** the above script 
 
-```
+```css
 python demo.py
 ```
 
