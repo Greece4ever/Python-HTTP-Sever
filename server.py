@@ -3,13 +3,14 @@ from typing import Union
 import status
 from datetime import datetime
 import re
+import threading
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
 
 class Server:
-    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT):
-        print(f"Starting local  Server on {host}:{port}")
+    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,http : bool = True):
+        print(f"Starting local {'HTTP' if http else 'WS'} Server on {host}:{port}")
         self.adress = (host,port)
         self.connection = socket.socket()
         self.connection.bind(self.adress)
@@ -32,10 +33,9 @@ class Server:
             client,address = self.connection.accept()
             request = client.recv(1024)
             if len(request) == 0:
-                client.send(status.Http404().__call__(""))
                 continue
             headers = self.ParseHeaders(request)
-            print(f'{headers["method"]} | {str(datetime.now())} : {address}')
+            print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
             URL = headers["method"]
             target = URL.split(" ")[1]
             if not target in URLS:
@@ -49,4 +49,27 @@ class Server:
 
             client.close()
 
+class ThreadedServer(Server):
+    def __init__(self,host : str = LOCALHOST,port : int = 8000):
+        super(ThreadedServer,self).__init__(host=host,port=port,http=False)
+
+    def AwaitSocket(self):
+        self.connection.listen(1)
+        while True:
+            client,adress = self.connection.accept()
+            t = threading.Thread(target=self.AwaitMessage,args=(client,adress))
+            t.start()
+
+    def AwaitMessage(self,client,address):
+        while True:
+            data = client.recv(1024)
+            try:
+                if str(data.strip()) != '':
+                    headers = self.ParseHeaders(data)
+                    HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
+                    client.send(HTTP_MSG)
+            except Exception as f:
+                if str(f).strip() != "pop from empty list":
+                    print(f)
+        client.close()
 

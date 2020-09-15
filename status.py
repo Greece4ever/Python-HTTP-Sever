@@ -5,7 +5,11 @@
 """
 import magic #For Binary Files
 import json #For json
+#For Handling Websockets
+from base64 import b64encode 
+from hashlib import sha1
 
+CODE = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 class Http100(Exception):
     @classmethod
@@ -17,12 +21,19 @@ class Http100(Exception):
 
 
 class Http101(Exception):
+    """For handling ws Protocol requests"""
     @classmethod
-    def __call__(self,template):
+    def __call__(self,template,key):
+        key += CODE
+        key = sha1(key.encode()).hexdigest()
+        key = b64encode(key.encode())
         return (b"HTTP/1.1 101 Switching Protocols\n"
                 +b"Content-Type: text/html\n"
-                +b"\n" 
-                +template.encode())    
+                +b"Connection: Upgrade\n"
+                +b"Upgrade: websocket\n"
+                +"Sec-WebSocket-Accept: {}\n".format(key).encode()
+                +b"\n"
+                )    
 
 
 class Http2xx(Exception):
