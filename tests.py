@@ -1,4 +1,4 @@
-from server import Server,WebsocketServer
+from server import WebsocketServer,HttpServer
 from routes import View,template,static,ApiView
 import status
 import threading
@@ -33,8 +33,8 @@ URLS : dict = {
     '/chat' : chat 
 }
 
-HTTP_SERVER = Server()
-t = threading.Thread(target=HTTP_SERVER.AwaitRequest,kwargs={"URLS" : URLS}) 
+HTTP_SERVER = HttpServer(URLS=URLS)
+t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
 t.start()
 WEBSOCKET_SERVER = WebsocketServer(port=8000)
 t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
