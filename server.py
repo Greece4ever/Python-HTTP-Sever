@@ -37,7 +37,7 @@ class HttpServer:
             t = threading.Thread(target=self.HandleRequest,args=(client,self.urls))
             t.start()
 
-    def HandleRequest(self,client,URLS):
+    def HandleRequest(self,client,URLS : dict):
         client,address = client 
         request = client.recv(1024) #Await for messages
         if len(request) == 0:
