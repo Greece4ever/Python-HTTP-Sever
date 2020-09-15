@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id='msg_box' style="width: 500px;height: 500px;">
+    </div>
+    <input id='text' placeholder="Type Message">
+    <button id='btn'>Send</button>
+</body>
+</html>
+<script>
+    const host = window.location.host
+    const PORT = 8000;
+    const socket = new WebSocket(`ws://${host}:${PORT}/ws/connection`)
+
+    socket.onerror = () => {
+        document.write("<b>Something went wrong</b>")
+    }
+
+    document.getElementById("btn").addEventListener('click',() => {
+        socket.send(document.getElementById('text').value);
+    })
+
+    socket.onmessage = (response) => {
+        const box = document.getElementById("msg_box");
+        box.innerHTML += `<p>${response.data}</p>`
+    }
+
+</script>

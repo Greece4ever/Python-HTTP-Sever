@@ -1,0 +1,4 @@
+#Files that are either binaries or are used for testing
+*.PNG
+./__pycache__
+*.m4v
