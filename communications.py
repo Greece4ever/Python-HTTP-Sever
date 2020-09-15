@@ -1,5 +1,8 @@
 #Bless Stack Overflow answser with 4 likes
 #Fuck complexity of Websockets
+#Why the fuck do they have to pass in arguments
+#Like they are hasing fucking passwords
+
 def SocketBin(stringStreamIn):
     byteArray =  stringStreamIn
     datalength = byteArray[1] & 127

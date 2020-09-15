@@ -11,6 +11,8 @@ LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
 
 class HttpServer:
+    """A simple HTTP Server for handling requests"""
+
     def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,http : bool = True,**kwargs):
         print(f"Starting local {'HTTP' if http else 'WS'} Server on {host}:{port}")
         self.adress = (host,port)
@@ -19,6 +21,9 @@ class HttpServer:
         self.urls = kwargs.get("URLS")
     
     def ParseHeaders(self,request : Union[bytes,str]):
+        """For parsing the HTTP headers and giving them
+           in  a Python Dictionary format
+        """
             HEADERS = {}
             XS = request.decode('utf-8').split("\r\n")
             XS = [item for item in XS if item.strip() != '']
@@ -30,6 +35,7 @@ class HttpServer:
             return HEADERS
 
     def AwaitRequest(self):
+        """Wait for requests to be made"""
         self.connection.listen(1)
         #Start thread not to block request
         while True:
@@ -38,6 +44,10 @@ class HttpServer:
             t.start()
 
     def HandleRequest(self,client,URLS : dict):
+        """Handle the requests
+           giving the the target route view
+           and then closing the connection
+        """
         client,address = client 
         request = client.recv(1024) #Await for messages
         if len(request) == 0:
@@ -58,11 +68,14 @@ class HttpServer:
         client.close()
 
 class WebsocketServer(HttpServer):
+    """An extension of the HTTP Server for handling WebSocket Protocols"""
+
     def __init__(self,host : str = LOCALHOST,port : int = 8000):
         self.clients : list = [] #Store all the clients
         super(WebsocketServer,self).__init__(host=host,port=port,http=False)
 
     def AwaitSocket(self):
+        """Wait for new connections"""
         self.connection.listen(1)
         while True:
             client,adress = self.connection.accept()
@@ -70,6 +83,7 @@ class WebsocketServer(HttpServer):
             t.start()
 
     def onMessage(self,**kwargs):
+        """Gets called when a message is received from the client side"""
         data = kwargs.get('data')
         for client in self.clients:
             self.send(client,data)
@@ -94,6 +108,11 @@ class WebsocketServer(HttpServer):
         client.send(SocketBinSend(data))
 
     def AwaitMessage(self,client,address):
+        """While a client is connected,
+           this method is executing
+           in an infinite loop checking
+           if they are sending messagess
+        """
         while True:
             data = client.recv(1024)
             if len(data) == 0:
