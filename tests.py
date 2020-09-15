@@ -1,4 +1,4 @@
-from server import Server,ThreadedServer
+from server import Server,WebsocketServer
 from routes import View,template,static,ApiView
 import status
 import threading
@@ -36,6 +36,6 @@ URLS : dict = {
 HTTP_SERVER = Server()
 t = threading.Thread(target=HTTP_SERVER.AwaitRequest,kwargs={"URLS" : URLS}) 
 t.start()
-WEBSOCKET_SERVER = ThreadedServer(port=8000)
+WEBSOCKET_SERVER = WebsocketServer(port=8000)
 t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
 t.start()

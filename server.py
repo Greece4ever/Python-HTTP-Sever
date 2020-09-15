@@ -4,6 +4,8 @@ import status
 from datetime import datetime
 import re
 import threading
+import base64 
+from communications import SocketBin,SocketBinSend
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -49,9 +51,10 @@ class Server:
 
             client.close()
 
-class ThreadedServer(Server):
+class WebsocketServer(Server):
     def __init__(self,host : str = LOCALHOST,port : int = 8000):
-        super(ThreadedServer,self).__init__(host=host,port=port,http=False)
+        self.clients : list = [] #Store all the clients
+        super(WebsocketServer,self).__init__(host=host,port=port,http=False)
 
     def AwaitSocket(self):
         self.connection.listen(1)
@@ -60,16 +63,35 @@ class ThreadedServer(Server):
             t = threading.Thread(target=self.AwaitMessage,args=(client,adress))
             t.start()
 
+    def onMessage(self,**kwargs):
+        s_function = kwargs.get('s_function')
+        data = kwargs.get('data')
+        for client in self.clients:
+            s_function(data)
+
+    def send(self,client,data : bytes) -> None:
+        client.send(SocketBinSend(data))
+
     def AwaitMessage(self,client,address):
         while True:
             data = client.recv(1024)
-            print(data)
-            try:
-                if str(data.strip()) != '':
-                    headers = self.ParseHeaders(data)
-                    HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
-                    client.send(HTTP_MSG)
-            except Exception as f:
-                continue
+            if len(data) == 0:
+                if client in self.clients:
+                    indx = self.clients.index(client)
+                    self.clients.pop(indx)
+                break
+            try: #Headers Can Be Parsed, New connection
+                headers = self.ParseHeaders(data)
+                self.clients.append(client)
+                HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
+                client.send(HTTP_MSG)
+                print(f"(WS) : {str(datetime.now())} Connection Established {address}")
+            except: #Out of range error, client send a bytes object
+                print(f"(WS) : {str(datetime.now())} Received Message {address}")
+                decoded = SocketBin(data)
+                self.onMessage(data=decoded,s_function=self.send,sender_client=client)
+                    
+                    # base64.b64decode(data)
+                    # client.send("Hello".encode())
         client.close()
 
