@@ -107,7 +107,7 @@ class WebsocketServer(HttpServer):
                 self.clients.append(client)
                 HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
-                self.onConnect(client)
+                self.onConnect((client,address))
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
             except: #Out of range error, client send a bytes object
                 print(f"(WS) : {str(datetime.now())} Received Message {address}")
