@@ -63,13 +63,13 @@ class ThreadedServer(Server):
     def AwaitMessage(self,client,address):
         while True:
             data = client.recv(1024)
+            print(data)
             try:
                 if str(data.strip()) != '':
                     headers = self.ParseHeaders(data)
                     HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
                     client.send(HTTP_MSG)
             except Exception as f:
-                if str(f).strip() != "pop from empty list":
-                    print(f)
+                continue
         client.close()
 
