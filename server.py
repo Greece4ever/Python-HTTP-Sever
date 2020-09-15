@@ -74,7 +74,23 @@ class WebsocketServer(HttpServer):
         for client in self.clients:
             self.send(client,data)
 
-    def send(self,client,data : bytes) -> None:
+    def onExit(self,client):
+        """Called when a client exits
+          the 'client' paramter is part
+          of the socket library 
+        """
+        pass
+    
+    def onConnect(self,client):
+        """Called when a client establishes
+          a connection to the server,
+          the 'client' paramter is part
+          of the socket library 
+        """
+        pass
+
+    def send(self,client,data : str) -> None:
+        """Sends data to a client"""
         client.send(SocketBinSend(data))
 
     def AwaitMessage(self,client,address):
@@ -84,18 +100,17 @@ class WebsocketServer(HttpServer):
                 if client in self.clients:
                     indx = self.clients.index(client)
                     self.clients.pop(indx)
+                self.onExit((client,address))
                 break
             try: #Headers Can Be Parsed, New connection
                 headers = self.ParseHeaders(data)
                 self.clients.append(client)
                 HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
+                self.onConnect(client)
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
             except: #Out of range error, client send a bytes object
                 print(f"(WS) : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)
                 self.onMessage(data=decoded,sender_client=client)
-                    
-                    # base64.b64decode(data)
-                    # client.send("Hello".encode())
         client.close()
