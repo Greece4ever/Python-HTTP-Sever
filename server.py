@@ -35,7 +35,7 @@ class Server:
             client,address = self.connection.accept()
             request = client.recv(1024)
             if len(request) == 0:
-                continue
+                break
             headers = self.ParseHeaders(request)
             print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
             URL = headers["method"]
