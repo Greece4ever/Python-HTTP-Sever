@@ -70,8 +70,9 @@ class HttpServer:
 class WebsocketServer(HttpServer):
     """An extension of the HTTP Server for handling WebSocket Protocols"""
 
-    def __init__(self,host : str = LOCALHOST,port : int = 8000):
+    def __init__(self,host : str = LOCALHOST,port : int = 8000,max_size : int = 4096):
         self.clients : list = [] #Store all the clients
+        self.max_size = max_size
         super(WebsocketServer,self).__init__(host=host,port=port,http=False)
 
     def AwaitSocket(self):
@@ -125,8 +126,7 @@ class WebsocketServer(HttpServer):
         """
         while True:
             try:
-                data = client.recv(1024)
-                print('data')
+                data = client.recv(self.max_size)
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client)
