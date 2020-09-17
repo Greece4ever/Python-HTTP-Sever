@@ -40,8 +40,10 @@ class CustomRoute(SocketView):
         """Gets called when a message is received from the client side"""
         data = kwargs.get('data')
         path_info = kwargs.get("path_info")
+        send = kwargs.get('send_function')
         for client in path_info['clients']:
-            self.send(client,data)
+            send(client,data)
+
 
 
 PATHS = {

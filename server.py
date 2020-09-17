@@ -186,6 +186,7 @@ class RoutedWebsocketServer(WebsocketServer):
             except: #Out of range error, client send a bytes object
                 print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)                               
-                CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path])
+                send_function = self.send
+                CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function)
 
         client.close()
