@@ -82,6 +82,22 @@ class ApiView(View):
     def PATCH(self,request):
         return status.HttpJson().__call__(self.not_allowed,405)
 
+class SocketView:
+    def __init__(self,max_size : int = 4096):
+        self.max_size = max_size
+
+    def onMessage(self,**kwargs):
+        pass
+
+    def onExit(self,client):
+        pass
+    
+    def onConnect(self,client):
+        pass
+
+    def send(self,client,socketfunction):
+        pass
+
 
 def template(path : str):
     with open(path,'r') as f:

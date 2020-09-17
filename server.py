@@ -75,12 +75,13 @@ class WebsocketServer(HttpServer):
         self.max_size = max_size
         super(WebsocketServer,self).__init__(host=host,port=port,http=False)
 
-    def AwaitSocket(self):
+    def AwaitSocket(self,add_to_clients : bool = True):
         """Wait for new connections"""
         self.connection.listen(1)
         while True:
             client,adress = self.connection.accept()
-            self.clients.append(client)
+            if add_to_clients:
+                self.clients.append(client)
             t = threading.Thread(target=self.AwaitMessage,args=(client,adress))
             t.start()
 
@@ -133,7 +134,7 @@ class WebsocketServer(HttpServer):
                 break
             try: #Headers Can Be Parsed, New connection
                 headers = self.ParseHeaders(data)
-                HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
+                HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
                 self.onConnect((client,address))
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
@@ -141,4 +142,50 @@ class WebsocketServer(HttpServer):
                 print(f"(WS) : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)                               
                 self.onMessage(data=decoded,sender_client=client)
+        client.close()
+
+class RoutedWebsocketServer(WebsocketServer):
+    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096):
+        self.global_max_size = global_max_size
+        self.routes : dict = {}
+        for item in paths:
+            self.routes[item] =  {"clients" : [],"view" : paths[item]}
+        super(RoutedWebsocketServer,self).__init__(host,port)
+        del self.clients;del self.max_size
+
+    def AwaitSocket(self):
+        super(RoutedWebsocketServer,self).AwaitSocket(add_to_clients=False)
+
+    def AwaitMessage(self,client,address):
+        path : str
+        while True:
+            try:
+                data = client.recv(self.global_max_size)
+            except:
+                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client)
+                break
+            
+            try:
+                headers = self.ParseHeaders(data)
+                path = headers['method'].split(" ")[1]
+
+                #Path is not found
+                if not path in self.routes:
+                    print(f"(WS) : {str(datetime.now())} Connection Not Found \"{path}\" {address}")
+                    client.close();break
+
+                #Send the 'OK' Response to the client
+                HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
+                client.send(HTTP_MSG)
+                print(f"(WS) {path} : {str(datetime.now())} Connection Established on \"{path}\"  {address}")
+                
+                #Add him to the clients-list
+                self.routes[path]['clients'].append(client)
+                CWM = self.routes[path]["view"]
+            except: #Out of range error, client send a bytes object
+                print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
+                decoded = SocketBin(data)                               
+                CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path])
+
         client.close()

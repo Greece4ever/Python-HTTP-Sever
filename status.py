@@ -1,8 +1,9 @@
 """"
-    All HTTP Response codes classes
-    to use one of them you can call them inside the method
-    using the .__call__ method and the html you want to render
+    All HTTP Response codes that will be received on the client-side,\n
+    To use one of them you can call them inside the method\n
+    using the .__call__ method and the html you want to render\n
 """
+
 import magic #For Binary Files
 import json #For json
 #For Handling Websockets
@@ -23,7 +24,7 @@ class Http100(Exception):
 class Http101(Exception):
     """For handling ws Protocol requests"""
     @classmethod
-    def __call__(self,template,key):
+    def __call__(self,key):
         key = key.strip()
         # key += GUID
         # key = sha1(key.encode()).digest()

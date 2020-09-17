@@ -15,7 +15,9 @@
 <script>
     const host = window.location.host
     const PORT = 8000;
-    const socket = new WebSocket(`ws://${host}:${PORT}/ws/connection`)
+    // const socket = new WebSocket(`ws://${host}:${PORT}/ws/connection`)
+    const socket = new WebSocket(`ws://${host}:${PORT}/peos`)
+
 
     socket.onerror = () => {
         document.write("<b>Something went wrong</b>")

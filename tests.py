@@ -1,5 +1,5 @@
-from server import WebsocketServer,HttpServer
-from routes import View,template,static,ApiView
+from server import WebsocketServer,HttpServer,RoutedWebsocketServer
+from routes import View,template,static,ApiView,SocketView
 import status
 import threading
 
@@ -17,7 +17,7 @@ class ShitJson(ApiView):
 
 class Chat(View):
     def GET(self,request):
-        return status.Http200().__call__(template("socket.html"))
+        return status.Http200().__call__(template("Examples/index.html"))
 
 home = Home()
 sta = StaticBinary()
@@ -33,9 +33,26 @@ URLS : dict = {
     '/chat' : chat 
 }
 
+
+class CustomRoute(SocketView):
+
+    def onMessage(self,**kwargs):
+        """Gets called when a message is received from the client side"""
+        data = kwargs.get('data')
+        path_info = kwargs.get("path_info")
+        for client in path_info['clients']:
+            self.send(client,data)
+
+
+PATHS = {
+    '/peos' : CustomRoute()
+}
+
 HTTP_SERVER = HttpServer(URLS=URLS)
+WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
+
 t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
 t.start()
-WEBSOCKET_SERVER = WebsocketServer(port=8000)
+
 t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
 t.start()
