@@ -24,15 +24,15 @@ class HttpServer:
         """For parsing the HTTP headers and giving them
            in  a Python Dictionary format
         """
-            HEADERS = {}
-            XS = request.decode('utf-8').split("\r\n")
-            XS = [item for item in XS if item.strip() != '']
-            HEADERS['method'] = XS.pop(0).replace("HTTP/1.1",'').strip()
-            term : str
-            for term in XS:
-                spl : list = term.split(":")
-                HEADERS[spl[0].strip()] = spl[1].strip()
-            return HEADERS
+        HEADERS = {}
+        XS = request.decode('utf-8').split("\r\n")
+        XS = [item for item in XS if item.strip() != '']
+        HEADERS['method'] = XS.pop(0).replace("HTTP/1.1",'').strip()
+        term : str
+        for term in XS:
+            spl : list = term.split(":")
+            HEADERS[spl[0].strip()] = spl[1].strip()
+        return HEADERS
 
     def AwaitRequest(self):
         """Wait for requests to be made"""
@@ -79,6 +79,7 @@ class WebsocketServer(HttpServer):
         self.connection.listen(1)
         while True:
             client,adress = self.connection.accept()
+            self.clients.append(client)
             t = threading.Thread(target=self.AwaitMessage,args=(client,adress))
             t.start()
 
@@ -107,6 +108,15 @@ class WebsocketServer(HttpServer):
         """Sends data to a client"""
         client.send(SocketBinSend(data))
 
+
+    def handleDisconnect(self,client):
+        CLS = self.clients
+        indx = CLS.index(client)
+        self.clients.pop(indx)
+        client.close()
+        self.onExit(client)
+
+
     def AwaitMessage(self,client,address):
         """While a client is connected,
            this method is executing
@@ -114,22 +124,21 @@ class WebsocketServer(HttpServer):
            if they are sending messagess
         """
         while True:
-            data = client.recv(1024)
-            if len(data) == 0:
-                if client in self.clients:
-                    indx = self.clients.index(client)
-                    self.clients.pop(indx)
-                self.onExit((client,address))
+            try:
+                data = client.recv(1024)
+                print('data')
+            except:
+                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client)
                 break
             try: #Headers Can Be Parsed, New connection
                 headers = self.ParseHeaders(data)
-                self.clients.append(client)
                 HTTP_MSG = status.Http101().__call__("da",headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
                 self.onConnect((client,address))
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
             except: #Out of range error, client send a bytes object
                 print(f"(WS) : {str(datetime.now())} Received Message {address}")
-                decoded = SocketBin(data)
+                decoded = SocketBin(data)                               
                 self.onMessage(data=decoded,sender_client=client)
         client.close()

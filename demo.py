@@ -9,23 +9,6 @@ import threading
 
 class MyCustomSocket(WebsocketServer):
 
-    def onConnect(self,client):
-        """Called when a client establishes
-          a connection to the server,
-          the 'client' paramter is part
-          of the socket library 
-        """
-        print("Client {} connected to Websocket.".format(client[-1]))
-
-
-    def onExit(self,client):
-        """Called when a client exits
-          the 'client' paramter is part
-          of the socket library 
-        """
-        print("Client {} Exited Websocket.".format(client[-1]))
-
-
     def onMessage(self,**kwargs):
         """This method gets called when
            a message is received from a 
@@ -35,7 +18,6 @@ class MyCustomSocket(WebsocketServer):
         #For Everyone Connected to the socket echo the mssage back
         for client in self.clients:
             self.send(client,data)
-
 
 
 class Chat(View):

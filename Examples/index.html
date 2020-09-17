@@ -8,7 +8,7 @@
 <body>
     <div id='msg_box' style="width: 500px;height: 500px;">
     </div>
-    <input id='text' placeholder="Type Message">
+    <textarea id='text' placeholder="Type Message"></textarea>
     <button id='btn'>Send</button>
 </body>
 </html>
@@ -22,12 +22,20 @@
     }
 
     document.getElementById("btn").addEventListener('click',() => {
-        socket.send(document.getElementById('text').value);
+        let msg = encodeURI(document.getElementById('text').value);
+        socket.send(msg);
+    })
+
+    document.body.addEventListener("keypress",(e) => {
+        if (e.keyCode==13){
+            document.getElementById("btn").click()
+        }
     })
 
     socket.onmessage = (response) => {
         const box = document.getElementById("msg_box");
-        box.innerHTML += `<p>${response.data}</p>`
+        console.log(response.data)
+        box.innerHTML += `<p>${decodeURI(response.data)}</p>`
     }
 
 </script>

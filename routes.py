@@ -92,6 +92,3 @@ def static(path : str):
     with open(path,'rb+') as f:
         data = f.read()
     return data
-
-
-
