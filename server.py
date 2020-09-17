@@ -6,6 +6,7 @@ import re
 import threading
 import base64 
 from communications import SocketBin,SocketBinSend
+from typing import Any
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -111,12 +112,20 @@ class WebsocketServer(HttpServer):
         client.send(SocketBinSend(data))
 
 
-    def handleDisconnect(self,client):
-        CLS = self.clients
-        indx = CLS.index(client)
-        self.clients.pop(indx)
-        client.close()
-        self.onExit(client)
+    def handleDisconnect(self,client,list_of_clients : Any = None):
+        if list_of_clients is None:
+            CLS = self.clients
+            indx = CLS.index(client)
+            self.clients.pop(indx)
+            client.close()
+            self.onExit(client)
+
+        else:
+            CLS = list_of_clients
+            indx = CLS.index(client)
+            CLS.pop(indx)
+            client.close()
+            self.onExit(client)
 
 
     def AwaitMessage(self,client,address):
@@ -130,15 +139,19 @@ class WebsocketServer(HttpServer):
                 data = client.recv(self.max_size)
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client)
+                self.handleDisconnect(client,)
                 break
-            try: #Headers Can Be Parsed, New connection
+            
+            #First Time Connection
+            try: 
                 headers = self.ParseHeaders(data)
                 HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
                 self.onConnect((client,address))
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
-            except: #Out of range error, client send a bytes object
+
+            #Typical Message
+            except: 
                 print(f"(WS) : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)                               
                 self.onMessage(data=decoded,sender_client=client)
@@ -162,10 +175,11 @@ class RoutedWebsocketServer(WebsocketServer):
             try:
                 data = client.recv(self.global_max_size)
             except:
-                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client)
+                print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client,self.routes[path]['clients'])
                 break
             
+            #Connection
             try:
                 headers = self.ParseHeaders(data)
                 path = headers['method'].split(" ")[1]
@@ -178,12 +192,15 @@ class RoutedWebsocketServer(WebsocketServer):
                 #Send the 'OK' Response to the client
                 HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
-                print(f"(WS) {path} : {str(datetime.now())} Connection Established on \"{path}\"  {address}")
+                num_client : int = self.routes[path]['clients'].__len__()+1
+                print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
                 
                 #Add him to the clients-list
                 self.routes[path]['clients'].append(client)
                 CWM = self.routes[path]["view"]
-            except: #Out of range error, client send a bytes object
+            
+            #Websocket Message
+            except: 
                 print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)                               
                 send_function = self.send

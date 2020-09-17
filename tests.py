@@ -19,20 +19,18 @@ class Chat(View):
     def GET(self,request):
         return status.Http200().__call__(template("Examples/index.html"))
 
-home = Home()
-sta = StaticBinary()
-rest = ApiView()
-gg = ShitJson()
-chat = Chat()
+class Chat2(View):
+    def GET(self,request):
+        return status.Http200().__call__(template("Examples/socket.html"))
 
 URLS : dict = {
-    "/" : home,
-    "/static" : sta,
-    "/peos" : rest,
-    '/another' : gg,
-    '/chat' : chat 
+    "/" : Home(),
+    "/static" : StaticBinary(),
+    "/peos" : ApiView(),
+    '/another' : ShitJson(),
+    '/chat' : Chat(),
+    '/chat2' : Chat2()
 }
-
 
 class CustomRoute(SocketView):
 
@@ -44,10 +42,13 @@ class CustomRoute(SocketView):
         for client in path_info['clients']:
             send(client,data)
 
-
+class ChatRoute(CustomRoute):
+    pass
 
 PATHS = {
-    '/peos' : CustomRoute()
+    '/peos' : CustomRoute(),
+    '/chat' : ChatRoute(ChatRoute)
+
 }
 
 HTTP_SERVER = HttpServer(URLS=URLS)
