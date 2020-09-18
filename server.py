@@ -4,9 +4,9 @@ import status
 from datetime import datetime
 import re
 import threading
-import base64 
 from communications import SocketBin,SocketBinSend
 from typing import Any
+import traceback
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -16,10 +16,10 @@ class HttpServer:
 
     def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,http : bool = True,**kwargs):
         print(f"Starting local {'HTTP' if http else 'WS'} Server on {host}:{port}")
-        self.adress = (host,port)
-        self.connection = socket.socket()
+        self.adress : tuple = (host,port)
+        self.connection : socket.socket = socket.socket()
         self.connection.bind(self.adress)
-        self.urls = kwargs.get("URLS")
+        self.urls : dict = kwargs.get("URLS")
     
     def ParseHeaders(self,request : Union[bytes,str]):
         """For parsing the HTTP headers and giving them
@@ -52,21 +52,24 @@ class HttpServer:
         client,address = client 
         request = client.recv(1024) #Await for messages
         if len(request) == 0:
+            client.close()
             return ...
         headers = self.ParseHeaders(request)
         print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
         URL = headers["method"]
         target = URL.split(" ")[1]
-        if not target in URLS:
-            client.send(status.Http404.__call__("<b>Page {} Was not Found (404 Status Code)</b>".format(target)))
-        else:
-            try:
-                client.send(URLS.get(target).__call__(headers))
-            except Exception as error:
-                print(f'[ERROR] : {error}')
-                client.send(status.Http500().__call__("<h1>Internal Server Error</h1>"))
+        for url in URLS:
+            match = re.fullmatch(url,target)
+            if match: #linear search is the only way to go
+                try:
+                    client.send(URLS.get(url).__call__(headers))
+                except Exception:
+                    client.send(status.Http500().__call__("<h1>500 Internal Server Error</h1>"))
+                finally:
+                    return client.close()
 
-        client.close()
+        client.send(status.Http404.__call__("<b>Page {} Was not Found (404 Status Code)</b>".format(target)))
+        return client.close()
 
 class WebsocketServer(HttpServer):
     """An extension of the HTTP Server for handling WebSocket Protocols"""

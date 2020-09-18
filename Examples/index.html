@@ -11,6 +11,10 @@
     <textarea id='text' placeholder="Type Message"></textarea>
     <button id='btn'>Send</button>
     $$static$$
+    @@for item in $$static$$ @@
+        <p>$$item$$</p>
+    @@endfor@@
+
 </body>
 </html>
 <script>

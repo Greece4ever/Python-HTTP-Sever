@@ -5,11 +5,11 @@ import threading
 
 class Home(View):
     def GET(self,request):
-        return status.Http200().__call__(template("index.html")) 
+        return status.Http200().__call__("Home Page") 
 
 class StaticBinary(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(static('ATETOKOUMPOS.m4v'),"ATETOKOUMPOS.m4v")
+        return status.HttpBinary().__call__(static('readme.md'),"readme.md")
 
 class ShitJson(ApiView):
     def GET(self,request):
@@ -23,13 +23,19 @@ class Chat2(View):
     def GET(self,request):
         return status.Http200().__call__(template("Examples/socket.html"))
 
+class RView(View):
+    def GET(self,request):
+        page_num = request['method'].split('/')[-1]
+        return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
+
 URLS : dict = {
     "/" : Home(),
     "/static" : StaticBinary(),
     "/peos" : ApiView(),
     '/another' : ShitJson(),
     '/chat' : Chat(),
-    '/chat2' : Chat2()
+    '/chat2' : Chat2(),
+    r'\/profiles\/(\w+)(\/)?' : RView()
 }
 
 class CustomRoute(SocketView):
