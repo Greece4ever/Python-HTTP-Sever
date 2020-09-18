@@ -42,4 +42,3 @@ def findScript(html,content):
         except Exception as f:
             raise f    
     return html
-    # return STATEMENTS

@@ -147,8 +147,8 @@ class WebsocketServer(HttpServer):
                 break
 
             if len(data) == 0:
-                print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client,self.routes[path]['clients'])
+                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client)
                 break
 
             #First Time Connection
