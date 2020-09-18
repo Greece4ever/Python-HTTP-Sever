@@ -5,14 +5,16 @@ import threading
 import datetime
 from cache import Cache
 
-cache = Cache("cache.sqlite3","Cache",(10,datetime.timedelta(minutes=1)))
+cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 
 class Home(View):
 
     @cache.CacheDecorator
     def GET(self,request,**kwargs):
-        print(kwargs.get('isPermitted'))
-        return status.Http200().__call__("Home Page") 
+        isperm = kwargs.get('isPermitted')
+        if isperm:
+            return status.Http200().__call__("Home Page") 
+        return status.Http429().__call__("Too many requests 429")
 
 class StaticBinary(View):
     def GET(self,request):

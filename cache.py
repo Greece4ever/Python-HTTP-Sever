@@ -61,10 +61,9 @@ class Cache:
     def handleTime(self,ip):
         beg_data = self.check(ip).fetchall()[0]
         time_since_last_commit = datetime.datetime.now() - datetime.datetime.fromtimestamp(beg_data[-2]) #timedelta
-        print(f'Minimum time required : {self.rate[1]}')
-        print(f'Time Passed since last : {time_since_last_commit}')
         if time_since_last_commit < self.rate[1]: #if the time interval since the last request has not passed
             if beg_data[-1] > self.rate[0]:
+                print("(CACHE) Blocked request with time difference {} ({})".format(time_since_last_commit,ip))
                 return False # Suitable for 429 Status
             return True
         self.save(ip,0) #Set The Connection Attempts to 0
@@ -72,7 +71,7 @@ class Cache:
 
 
     def CacheDecorator(self,function : callable):
-        print("CALLED")
+        """Save into Cache visits at a page"""
         def wrapper(*args,**kwargs):
             self.connection = sqlite3.connect(self.filename)
             self.cursor = self.connection.cursor()
@@ -80,9 +79,11 @@ class Cache:
             try:
                 isPermitted = self.handleTime(IP)
             except Exception as f:
-                self.save(IP)
+                print(f)
                 isPermitted = True
-            return function(*args,**kwargs,isPermitted=isPermitted)
+            finally:
+                self.save(IP)
+                return function(*args,**kwargs,isPermitted=isPermitted)
         return wrapper
 
 if __name__ == "__main__":
