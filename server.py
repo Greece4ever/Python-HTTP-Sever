@@ -62,6 +62,7 @@ class HttpServer:
             match = re.fullmatch(url,target)
             if match: #linear search is the only way to go
                 try:
+                    headers['IP'] = self.get_client_ip(client)
                     client.send(URLS.get(url).__call__(headers))
                 except Exception:
                     client.send(status.Http500().__call__("<h1>500 Internal Server Error</h1>"))
@@ -70,6 +71,9 @@ class HttpServer:
 
         client.send(status.Http404.__call__("<b>Page {} Was not Found (404 Status Code)</b>".format(target)))
         return client.close()
+
+    def get_client_ip(self,client):
+        return client.getsockname()[0]
 
 class WebsocketServer(HttpServer):
     """An extension of the HTTP Server for handling WebSocket Protocols"""

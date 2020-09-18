@@ -2,9 +2,16 @@ from server import WebsocketServer,HttpServer,RoutedWebsocketServer
 from routes import View,template,static,ApiView,SocketView
 import status
 import threading
+import datetime
+from cache import Cache
+
+cache = Cache("cache.sqlite3","Cache",(10,datetime.timedelta(minutes=1)))
 
 class Home(View):
-    def GET(self,request):
+
+    @cache.CacheDecorator
+    def GET(self,request,**kwargs):
+        print(kwargs.get('isPermitted'))
         return status.Http200().__call__("Home Page") 
 
 class StaticBinary(View):
@@ -73,6 +80,7 @@ PATHS = {
     '/peos' : CustomRoute(),
     '/chat' : ChatRoute(ChatRoute)
 }
+
 
 HTTP_SERVER = HttpServer(URLS=URLS)
 WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)

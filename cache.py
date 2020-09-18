@@ -17,10 +17,11 @@ class Cache:
     handleTime method
         param: ip (The IP the operations are going to be performed in)
     """
-    def __init__(self,filename : str,cache_name : str,req_rate : Tuple[int,datetime.datetime]):
+    def __init__(self,filename : str,cache_name : str,req_rate : Tuple[int,datetime.timedelta]):
         self.connection = sqlite3.connect(filename)
         self.cachename = cache_name
         self.cursor = self.connection.cursor()
+        self.filename = filename
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS {} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,18 +65,25 @@ class Cache:
         print(f'Time Passed since last : {time_since_last_commit}')
         if time_since_last_commit < self.rate[1]: #if the time interval since the last request has not passed
             if beg_data[-1] > self.rate[0]:
-                return "Connection Blocked" # Suitable for 429 Status
-            return "Connection OK"
+                return False # Suitable for 429 Status
+            return True
         self.save(ip,0) #Set The Connection Attempts to 0
-        return "Connection OK"
+        return True
 
+
+    def CacheDecorator(self,function : callable):
+        print("CALLED")
+        def wrapper(*args,**kwargs):
+            self.connection = sqlite3.connect(self.filename)
+            self.cursor = self.connection.cursor()
+            IP = args[-1]['IP']
+            try:
+                isPermitted = self.handleTime(IP)
+            except Exception as f:
+                self.save(IP)
+                isPermitted = True
+            return function(*args,**kwargs,isPermitted=isPermitted)
+        return wrapper
 
 if __name__ == "__main__":
-    cache = Cache("cache.sqlite3",'Cache',(3,datetime.timedelta(seconds=10)))
-    cache.save("192.168.1.1")
-
-    for i in range(10):
-        print(cache.handleTime("192.168.1.1"))  
-        cache.save("192.168.1.1")
-        print(cache.check("192.168.1.1").fetchall()[0])
-        input("Continue : ")
+    pass
