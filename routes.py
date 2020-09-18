@@ -1,5 +1,6 @@
 import status
 import json
+import static as st
 
 def UI405(method : str) -> str:
     return "<h1> Method {} not Allowed </h1>".format(method)
@@ -99,9 +100,11 @@ class SocketView:
         pass
 
 
-def template(path : str):
+def template(path : str,usePythonScript : bool = False,context : dict =  {}):
     with open(path,'r') as f:
         data = f.read()
+    if usePythonScript:
+        data = st.findScript(data,context)
     return data
 
 def static(path : str):

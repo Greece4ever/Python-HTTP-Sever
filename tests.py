@@ -2,6 +2,8 @@ from server import WebsocketServer,HttpServer,RoutedWebsocketServer
 from routes import View,template,static,ApiView,SocketView
 import status
 import threading
+from random import random
+
 
 class Home(View):
     def GET(self,request):
@@ -28,6 +30,11 @@ class RView(View):
         page_num = request['method'].split('/')[-1]
         return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
 
+class Axios(View):
+    def GET(self, request):
+        r_list = [random() for i in range(100)]
+        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context={'random' : r_list}))
+
 URLS : dict = {
     "/" : Home(),
     "/static" : StaticBinary(),
@@ -35,7 +42,8 @@ URLS : dict = {
     '/another' : ShitJson(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
-    r'\/profiles\/(\w+)(\/)?' : RView()
+    r'\/profiles\/(\w+)(\/)?' : RView(),
+    r'/nums\/(\d+)' : Axios()
 }
 
 class CustomRoute(SocketView):

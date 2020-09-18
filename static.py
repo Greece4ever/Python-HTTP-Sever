@@ -1,5 +1,5 @@
 import re
-from routes import template
+# from routes import template
 
 def popAll(item):
     item.pop(0)
@@ -17,7 +17,7 @@ def parseVariables(html,content):
     return html
 
 def parseHTML(html):
-    res = html.replace('html(',r'code = f"""').replace(")endhtml",'"""\n\tINDEX.append(code)')
+    res = html.replace('html(',r'code = f"""').replace(")endhtml",'"""\n        INDEX.append(code)')
     return res
 
 def parseCode(html,context):
@@ -25,42 +25,28 @@ def parseCode(html,context):
     PH = parseHTML(PV)
     return PH.replace("<?python",'').replace("?>",'')
     
-def findScript(html):
+def findScript(html,content):
+    """Find all the <?python ?> script tags inside a hyper text mark up language document"""
+    print(content)
     STATEMENTS : list = []
     while True:
         try:
+            INDEX : list = []
             indx1 = html.index("<?python")
             indx2 = html.index("?>")
+            print(indx1,indx2,"Indexes")
             statement = html[indx1:indx2+2]
-            html = html.replace(statement,'')
-            insert(html,indx1,"HELLO!!!")
+            cl = "code = '' \n" + "if True is not False:" + parseCode(statement,content)
+            print(cl,end="\n\n")
+
+            exec(cl)
+            html = html.replace(statement,"\n".join(INDEX))
             STATEMENTS.append(statement)
-        except Exception as e:
+        except Exception as f:
+            print(f)
+            # raise f
             break
     
-    return STATEMENTS
-
-context = {'context' : {"name" : 'pakis','tags' : 'peos'}}
-
-tem = template("Examples/index.html")
-x = (parseCode("""
-<?python
-    for item in $$context$$:
-        html(<div id='msg_box' style="width: 500px;height: 500px;">
-            <textarea id='text' placeholder="Type Message">
-                <button id='btn'>{item}</button>
-            </textarea>
-        </div>)endhtml
-?>      
-""",context))
-
-# statement = "if True:" + x
-# print(statement)
-with open("Examples/test.html") as f:
-    data = f.read()
-
-dt = findScript(data)
-for item in dt:
-    print(item)
-# exec(statement)
-# print(code)
+    print(f'{len(STATEMENTS)} Statements')
+    return html
+    # return STATEMENTS
