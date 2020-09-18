@@ -2,3 +2,5 @@
 *.PNG
 /__pycache__
 *.m4v
+*.sqlite3
+*.db
