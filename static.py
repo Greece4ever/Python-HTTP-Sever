@@ -27,26 +27,19 @@ def parseCode(html,context):
     
 def findScript(html,content):
     """Find all the <?python ?> script tags inside a hyper text mark up language document"""
-    print(content)
     STATEMENTS : list = []
     while True:
         try:
             INDEX : list = []
             indx1 = html.index("<?python")
             indx2 = html.index("?>")
-            print(indx1,indx2,"Indexes")
             statement = html[indx1:indx2+2]
             cl = "code = '' \n" + "if True is not False:" + parseCode(statement,content)
-            print(cl,end="\n\n")
-
+            # print(cl,end="\n\n")
             exec(cl)
             html = html.replace(statement,"\n".join(INDEX))
             STATEMENTS.append(statement)
         except Exception as f:
-            print(f)
-            # raise f
-            break
-    
-    print(f'{len(STATEMENTS)} Statements')
+            raise f    
     return html
     # return STATEMENTS

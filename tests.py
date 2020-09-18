@@ -2,8 +2,6 @@ from server import WebsocketServer,HttpServer,RoutedWebsocketServer
 from routes import View,template,static,ApiView,SocketView
 import status
 import threading
-from random import random
-
 
 class Home(View):
     def GET(self,request):
@@ -32,8 +30,20 @@ class RView(View):
 
 class Axios(View):
     def GET(self, request):
-        r_list = [random() for i in range(100)]
-        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context={'random' : r_list}))
+        s = ["a",
+            "abandon",
+            "ability",
+            "able",
+            "abortion",
+            "about",
+            "above",
+            "abroad",
+            "absence",
+            "absolute",
+            "absolutely",
+            "absorb",
+                ]
+        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context={'names' : s}))
 
 URLS : dict = {
     "/" : Home(),
@@ -62,7 +72,6 @@ class ChatRoute(CustomRoute):
 PATHS = {
     '/peos' : CustomRoute(),
     '/chat' : ChatRoute(ChatRoute)
-
 }
 
 HTTP_SERVER = HttpServer(URLS=URLS)

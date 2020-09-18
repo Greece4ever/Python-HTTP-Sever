@@ -140,13 +140,20 @@ class WebsocketServer(HttpServer):
         while True:
             try:
                 data = client.recv(self.max_size)
+            #Client Disconnect
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,)
                 break
-            
+
+            if len(data) == 0:
+                print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client,self.routes[path]['clients'])
+                break
+
             #First Time Connection
             try: 
+                #Parse The Headers and initialize Websocket
                 headers = self.ParseHeaders(data)
                 HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
@@ -181,7 +188,12 @@ class RoutedWebsocketServer(WebsocketServer):
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 break
-            
+
+            if len(data) == 0:
+                print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client,self.routes[path]['clients'])
+                break
+
             #Connection
             try:
                 headers = self.ParseHeaders(data)
@@ -197,7 +209,6 @@ class RoutedWebsocketServer(WebsocketServer):
                 client.send(HTTP_MSG)
                 num_client : int = self.routes[path]['clients'].__len__()+1
                 print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
-                
                 #Add him to the clients-list
                 self.routes[path]['clients'].append(client)
                 CWM = self.routes[path]["view"]
@@ -205,7 +216,7 @@ class RoutedWebsocketServer(WebsocketServer):
             #Websocket Message
             except: 
                 print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
-                decoded = SocketBin(data)                               
+                decoded = SocketBin(data)    
                 send_function = self.send
                 CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function)
 
