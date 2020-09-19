@@ -235,24 +235,28 @@ class RoutedWebsocketServer(WebsocketServer):
         path : str
         send_function = self.send
         while True:
+            #Await client response
             try:
                 data = client.recv(self.global_max_size)
+            
+            #Disconnect base on Exception
             except:
-                #Disconnect base on Exception
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
+                self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=send_function),'onExit')
                 break
 
+            #Disconnect because client send empty string
             if len(data) == 0:
-                #Disconnect because client send empty string
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
+                self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=send_function),'onExit')
                 break
 
             #Connection
             try:
-                headers = self.ParseHeaders(data)
-                path = headers['method'].split(" ")[1]
+                headers : dict = self.ParseHeaders(data)
+                path : str = headers['method'].split(" ")[1]
 
                 #Path is not found
                 if not path in self.routes:
@@ -261,7 +265,7 @@ class RoutedWebsocketServer(WebsocketServer):
 
                 #Let the onConnect function handle what to do next (either send 'OK' Response to the client,do nothing or close)
                 CWM = self.routes[path]["view"]
-                hndl = self.handleTraceback(lambda x : CWM.onConnect(client=client,path_info=self.routes[path],send_function=send_function,headers=headers,key=headers['Sec-WebSocket-Key']),"onConnect",path)  
+                hndl = self.handleTraceback(lambda _ : CWM.onConnect(client=client,path_info=self.routes[path],send_function=send_function,headers=headers,key=headers['Sec-WebSocket-Key']),"onConnect",path)  
                 if not hndl:
                     print(f"(WS) {path} : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
                     return client.close() #Close if there was an Exception or return None
@@ -276,5 +280,5 @@ class RoutedWebsocketServer(WebsocketServer):
             except: 
                 print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)    
-                self.handleTraceback(lambda x : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function),"onMessage",path)
+                self.handleTraceback(lambda _ : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function),"onMessage",path)
         client.close()

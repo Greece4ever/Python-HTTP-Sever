@@ -1,5 +1,5 @@
 from server import WebsocketServer,HttpServer,RoutedWebsocketServer
-from routes import View,template,static,ApiView,SocketView,static_read,f_read
+from routes import View,template,SocketView
 import status
 import threading
 import datetime
@@ -18,9 +18,9 @@ class Home(View):
 
 class StaticBinary(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(static('readme.md'),"readme.md")
+        return status.HttpBinary().__call__("readme.md")
 
-class ShitJson(ApiView):
+class ShitJson(View):
     def GET(self,request):
         return status.HttpJson().__call__({"hello" : 1},200)
 
@@ -60,7 +60,6 @@ class Imgres(View):
 URLS : dict = {
     "/" : Home(),
     "/static" : StaticBinary(),
-    "/peos" : ApiView(),
     '/another' : ShitJson(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
@@ -95,7 +94,6 @@ class CustomRoute(SocketView):
             send(client,data)
 
     def onExit(self,client,**kwargs):
-        print("EXITING")
         path_info = kwargs.get("path_info")
         send = kwargs.get('send_function')
         for client in path_info['clients']:
@@ -109,9 +107,8 @@ PATHS = {
     '/chat' : ChatRoute(ChatRoute)
 }
 
-
-HTTP_SERVER = HttpServer(URLS=URLS,host="192.168.56.1")
-WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS,host="192.168.56.1")
+HTTP_SERVER = HttpServer(URLS=URLS)
+WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
 
 t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
 t.start()

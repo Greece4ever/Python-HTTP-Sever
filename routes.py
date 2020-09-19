@@ -6,7 +6,7 @@ def UI405(method : str) -> str:
     return "<h1> Method {} not Allowed </h1>".format(method)
 
 class View:
-    def __init__(self):
+    def __init__(self,**kwargs):
         self.cases = {
             'GET' : self.GET,
             'POST' : self.POST,
@@ -18,6 +18,8 @@ class View:
             "TRACE" : self.TRACE,
             "PATCH" : self.PATCH
         }
+        self.PAGE_405_FUNCTION = kwargs.get('PAGE_405_FUNCTION')
+        self.PAGE_405_FUNCTION = self.PAGE_405_FUNCTION if self.PAGE_405_FUNCTION is not None else UI405
 
     def GET(self,request):
         return status.Http405().__call__(UI405("GET"))
@@ -49,41 +51,26 @@ class View:
     def __call__(self,request):
         return self.cases.get(request['method'].split(" ")[0].upper())(request)
 
-class ApiView(View):
-    def __init__(self):
-        self.not_allowed = {"error" : "Not Allowed"}
-        super(ApiView,self).__init__()
-
-    status.HttpJson(json)
-    def GET(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def POST(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def HEAD(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def PUT(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-
-    def DELETE(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def CONNECT(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def OPTIONS(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def TRACE(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
-    def PATCH(self,request):
-        return status.HttpJson().__call__(self.not_allowed,405)
-
 class SocketView:
+    """
+    A view for handling WebSocket connections and keeping the connection alive\n
+    used in the URLS passed in to the RoutedWebsocketServer __init__ method.\n
+
+    Parameters:
+        param: max_size = The maximum amount of data to be transfered at a time
+        DEFAULT = 4096
+
+    Methods:
+        (NOT TO BE OVERRIDDEN)
+        method: send (Send message to a client) 
+        method: accept (Accept a client connection)
+        (TO BE OVERRIDDEN)
+        method: onMessage (What to do on a client message)
+        method: onExit (What to do on client exit)
+        method: onConnect (What to do on client connect)
+        method: get_client_ip (get the client's socketname)
+
+    """
     def __init__(self,max_size : int = 4096):
         self.max_size = max_size
 
@@ -113,30 +100,6 @@ def template(path : str,usePythonScript : bool = False,context : dict =  {}):
     if usePythonScript:
         data = st.findScript(data,context)
     return data
-
-def static(path : str):
-    with open(path,'rb+') as f:
-        data = f.read()
-    return data
-
-def read_in_chunks(file_object, chunk_size=1024):
-    """Lazy function (generator) to read a file piece by piece.
-    Default chunk size: 1k."""
-    while True:
-        data = file_object.read(chunk_size)
-        if not data:
-            break
-        yield data
-
-def static_read(file,process,f_proc):
-    with open(file,'rb') as f:
-        i : int = 0
-        for piece in read_in_chunks(f):
-            process(piece)
-            i+=1
-
-def f_read(file):
-    return open(file,'rb+')
 
 if __name__ == "__main__":
     pass

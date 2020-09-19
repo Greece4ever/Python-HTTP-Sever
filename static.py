@@ -18,7 +18,6 @@ import re
 import os
 from typing import Tuple
 
-
 def popAll(item):
     item.pop(0)
     item.pop(1)
