@@ -10,17 +10,33 @@ from traceback import print_exception
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
+STANDAR_404_PAGE : callable = lambda page : "<b>Page {} Was not Found (404 Status Code)</b>".format(page)
+STANDAR_500_PAGE : str = "<h1>500 Internal Server Error</h1>"
 
 class HttpServer:
-    """A simple HTTP Server for handling requests"""
+    """
+    A Standar Hyper Text Transfer Protool (HTTP) server,\n
+    that given a HTTP request on a specific route,\n
+    returns a specific 'View' class method depending on the method\n
+    and the PATH, which if not found a 404 page is returned passed in the context of:\n
+    param: page404 : callable = STANDAR_404_PAGE
+        STANDAR_404_PAGE = lambda page : '<b>Page {} Was not Found (404 Status Code)</b>'.format(page)
 
-    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,http : bool = True,**kwargs):
+    if an Exception is raised in one of the passed in VIEWS the standar 500 Page will be passed in
+    param: page505 : str = STANDAR_500_PAGE 
+
+
+    """
+
+    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,http : bool = True,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
         print(f"Starting local {'HTTP' if http else 'WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
         self.connection : socket.socket = socket.socket()
         self.connection.bind(self.adress)
         self.urls : dict = kwargs.get("URLS")
-    
+        self.page404 : callable = page404 
+        self.page500 : str = page500
+
     def ParseHeaders(self,request : Union[bytes,str]):
         """For parsing the HTTP headers and giving them
            in  a Python Dictionary format
@@ -66,18 +82,25 @@ class HttpServer:
                     client.send(URLS.get(url).__call__(headers))
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
-                    client.send(status.Http500().__call__("<h1>500 Internal Server Error</h1>"))
+                    client.send(status.Http500().__call__(self.page500))
                 finally:
                     return client.close()
 
-        client.send(status.Http404.__call__("<b>Page {} Was not Found (404 Status Code)</b>".format(target)))
+        client.send(status.Http404().__call__(self.page404(target)))
         return client.close()
 
     def get_client_ip(self,client):
         return client.getsockname()[0]
 
 class WebsocketServer(HttpServer):
-    """An extension of the HTTP Server for handling WebSocket Protocols"""
+    """An extension of the HTTP Server for handling WebSocket Protocols\n
+       Only one WebSocket server 'route' can be maintained at the same time\n
+       on the exact same ADDRESS and PORT using this class.
+
+       param: host : str = LOCALHOST (127.0.0.1)  
+       param: port : int = 8000
+       param max_size : int = 4096 (The Maximun number of data that can be transmitted in one Message)
+    """
 
     def __init__(self,host : str = LOCALHOST,port : int = 8000,max_size : int = 4096):
         self.clients : list = [] #Store all the clients
@@ -148,12 +171,22 @@ class WebsocketServer(HttpServer):
             #Client Disconnect
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client,)
+                self.handleDisconnect(client)
+                try:
+                    self.onExit(client)
+                except Exception as f:
+                    print(f"(WS) : {str(datetime.now())} An error occured while calling the self.onExit function")
+                    print_exception(type(f),f,f.__traceback__)
                 break
 
             if len(data) == 0:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client)
+                try:
+                    self.onExit(client)
+                except Exception as f:
+                    print(f"(WS) : {str(datetime.now())} An error occured while calling the self.onExit function")
+                    print_exception(type(f),f,f.__traceback__)
                 break
 
             #First Time Connection
@@ -162,17 +195,33 @@ class WebsocketServer(HttpServer):
                 headers = self.ParseHeaders(data)
                 HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
-                self.onConnect((client,address))
+                
+                #Catch Error on the onConnect method
+                try:
+                    self.onConnect((client,address))
+                except Exception as f:
+                    print(f"(WS) : {str(datetime.now())} An error occured while calling the self.onConnect function")
+                    print_exception(type(f),f,f.__traceback__)
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
-
+           
             #Typical Message
-            except: 
+            except Exception as f: 
                 print(f"(WS) : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)                               
                 self.onMessage(data=decoded,sender_client=client)
         client.close()
 
 class RoutedWebsocketServer(WebsocketServer):
+    """
+    A Websocket Server that can have multiple routes,
+    each one having it's own seperate clients,
+    all running on the same ADDRESS and PORT
+
+    Additional Parameters to WebsocketServer:
+        param: global_max_size : int = 4096 (This is the message that is transmitted before establishing a connection during the WebSocket HANDSHAKE)
+
+    """
+
     def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096):
         self.global_max_size = global_max_size
         self.routes : dict = {}
@@ -190,11 +239,13 @@ class RoutedWebsocketServer(WebsocketServer):
             try:
                 data = client.recv(self.global_max_size)
             except:
+                #Disconnect base on Exception
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 break
 
             if len(data) == 0:
+                #Disconnect because client send empty string
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 break
@@ -210,10 +261,11 @@ class RoutedWebsocketServer(WebsocketServer):
                     client.close();break
 
                 #Send the 'OK' Response to the client
-                HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
+                HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key']) #TODO NOTE BUG CHECK IF ACCEPT CLIENT
                 client.send(HTTP_MSG)
                 num_client : int = self.routes[path]['clients'].__len__()+1
                 print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
+                
                 #Add him to the clients-list
                 self.routes[path]['clients'].append(client)
                 CWM = self.routes[path]["view"]

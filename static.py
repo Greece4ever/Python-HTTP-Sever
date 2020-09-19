@@ -16,11 +16,7 @@ SAMPLE HTML FILE:
 """
 import re
 import os
-
-class StaticDirs:
-    def __init__(self,path):
-        for file,dir,pathname in os.walk(path):
-            pass
+from typing import Tuple
 
 
 def popAll(item):
@@ -47,9 +43,11 @@ def parseCode(html,context):
     PH = parseHTML(PV)
     return PH.replace("<?python",'').replace("?>",'')
     
-def findScript(html,content):
+def findScript(html,content,compiled : Tuple[bool,str] = (False,'')):
     """Find all the <?python ?> script tags inside a hyper text mark up language document"""
     STATEMENTS : list = []
+    if compiled[0]:
+        return html
     while True:
         try:
             INDEX : list = []
@@ -66,4 +64,3 @@ def findScript(html,content):
                 break
             raise f    
     return html
-

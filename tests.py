@@ -46,8 +46,7 @@ class RView(View):
                     "absence",
                     "absolute",
                     "absolutely",
-                    "absorb",
-                            ]
+                    "absorb"]
         }
         # page_num = request['method'].split('/')[-1]
         # return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
