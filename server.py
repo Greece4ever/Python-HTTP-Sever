@@ -282,3 +282,22 @@ class RoutedWebsocketServer(WebsocketServer):
                 decoded = SocketBin(data)    
                 self.handleTraceback(lambda _ : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function),"onMessage",path)
         client.close()
+
+
+class Server(HttpServer,RoutedWebsocketServer):
+    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096):
+        super(RoutedWebsocketServer, self).__init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096)
+
+    
+    def AwaitRequest(self):
+        """Wait for requests to be made"""
+        self.connection.listen(1)
+        #Start thread not to block request
+        while True:
+            client = self.connection.accept()
+            msg = client.recv(1024)
+            print(msg)
+            # t = threading.Thread(target=self.HandleRequest,args=(client,self.urls))
+            # t.start()
+
+    
