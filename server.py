@@ -2,11 +2,12 @@ import socket
 from typing import Union
 import status
 from datetime import datetime
-import re
+import re,io
 import threading
 from communications import SocketBin,SocketBinSend
 from typing import Any
 from traceback import print_exception
+
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -78,8 +79,12 @@ class HttpServer:
             if match: #linear search is the only way to go with regex
                 try:
                     headers['IP'] = self.get_client_ip(client)
-                    URLS.get(url).__call__(headers,snd=client.send)
-                    # client.send(URLS.get(url).__call__(headers,snd=client.send))
+                    msg = URLS.get(url).__call__(headers)
+                    if isinstance(msg,tuple):
+                        with open(msg[0],'rb+') as file:
+                            client.sendfile(file)
+                    else:
+                        client.send(msg)
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     client.send(status.Http500().__call__(self.page500))

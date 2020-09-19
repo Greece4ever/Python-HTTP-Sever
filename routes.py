@@ -19,36 +19,35 @@ class View:
             "PATCH" : self.PATCH
         }
 
-    def GET(self,request,**kwargs):
+    def GET(self,request):
         return status.Http405().__call__(UI405("GET"))
 
-    def POST(self,request,**kwargs):
+    def POST(self,request):
         return status.Http405().__call__(UI405("POST"))
 
-    def HEAD(self,request,**kwargs):
+    def HEAD(self,request):
         return status.Http405().__call__(UI405("HEAD"))
 
-    def PUT(self,request,**kwargs):
+    def PUT(self,request):
         return status.Http405().__call__(UI405("PUT"))
 
-    def DELETE(self,request,**kwargs):
+    def DELETE(self,request):
         return status.Http405().__call__(UI405("DELETE"))
 
-    def CONNECT(self,request,**kwargs):
+    def CONNECT(self,request):
         return status.Http405().__call__(UI405("CONNECT"))
 
-    def OPTIONS(self,request,**kwargs):
+    def OPTIONS(self,request):
         return status.Http405().__call__(UI405("OPTIONS"))
 
-    def TRACE(self,request,**kwargs):
+    def TRACE(self,request):
         return status.Http405().__call__(UI405("TRACE"))
 
-    def PATCH(self,request,**kwargs):
+    def PATCH(self,request):
         return status.Http405().__call__(UI405("PATCH"))
 
-    def __call__(self,request,**kwargs):
-        print(kwargs)
-        return self.cases.get(request['method'].split(" ")[0].upper())(request,kwargs=kwargs)
+    def __call__(self,request):
+        return self.cases.get(request['method'].split(" ")[0].upper())(request)
 
 class ApiView(View):
     def __init__(self):
@@ -129,10 +128,15 @@ def read_in_chunks(file_object, chunk_size=1024):
             break
         yield data
 
-def static_read(file,process):
-    with open('Examples/index.html','rb') as f:
+def static_read(file,process,f_proc):
+    with open(file,'rb') as f:
+        i : int = 0
         for piece in read_in_chunks(f):
             process(piece)
+            i+=1
+
+def f_read(file):
+    return open(file,'rb+')
 
 if __name__ == "__main__":
     pass
