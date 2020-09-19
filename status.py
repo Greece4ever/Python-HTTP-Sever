@@ -26,6 +26,7 @@ class Http101(Exception):
     """For handling WS Protocol requests"""
     @classmethod
     def __call__(self,key):
+        assert isinstance(key,str), "Key passed in (HTTP 101) must be {} not {}!".format(str,key)
         key = key.strip()
         key = b64encode(sha1((key + GUID).encode()).digest())
         return (b"HTTP/1.1 101 Switching Protocols\n"

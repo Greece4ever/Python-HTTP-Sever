@@ -68,15 +68,14 @@ class HttpServer:
         client,address = client 
         request = client.recv(1024) #Await for messages
         if len(request) == 0:
-            client.close()
-            return ...
+            return client.close()
         headers = self.ParseHeaders(request)
         print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
         URL = headers["method"]
         target = URL.split(" ")[1]
         for url in URLS:
             match = re.fullmatch(url,target)
-            if match: #linear search is the only way to go
+            if match: #linear search is the only way to go with regex
                 try:
                     headers['IP'] = self.get_client_ip(client)
                     client.send(URLS.get(url).__call__(headers))
@@ -91,6 +90,16 @@ class HttpServer:
 
     def get_client_ip(self,client):
         return client.getsockname()[0]
+
+    def handleTraceback(self,function,fname,path : str =  None):
+        try:
+            res = function(0)
+            return res
+        except Exception as f:
+            path = path if path is not None else ''
+            print(f"[ERROR] (WS) {path} : {str(datetime.now())} An Exception occurred while calling the {fname} function")
+            print_exception(type(f),f,f.__traceback__)
+            return False
 
 class WebsocketServer(HttpServer):
     """An extension of the HTTP Server for handling WebSocket Protocols\n
@@ -168,26 +177,15 @@ class WebsocketServer(HttpServer):
         while True:
             try:
                 data = client.recv(self.max_size)
-            #Client Disconnect
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client)
-                try:
-                    self.onExit(client)
-                except Exception as f:
-                    print(f"(WS) : {str(datetime.now())} An error occured while calling the self.onExit function")
-                    print_exception(type(f),f,f.__traceback__)
-                break
+                self.handleTraceback(lambda x : self.onExit(client),"onExit");break
 
             if len(data) == 0:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client)
-                try:
-                    self.onExit(client)
-                except Exception as f:
-                    print(f"(WS) : {str(datetime.now())} An error occured while calling the self.onExit function")
-                    print_exception(type(f),f,f.__traceback__)
-                break
+                self.handleTraceback(lambda x : self.onExit(client),"onExit");break
 
             #First Time Connection
             try: 
@@ -195,20 +193,14 @@ class WebsocketServer(HttpServer):
                 headers = self.ParseHeaders(data)
                 HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
                 client.send(HTTP_MSG)
-                
-                #Catch Error on the onConnect method
-                try:
-                    self.onConnect((client,address))
-                except Exception as f:
-                    print(f"(WS) : {str(datetime.now())} An error occured while calling the self.onConnect function")
-                    print_exception(type(f),f,f.__traceback__)
+                self.handleTraceback(lambda x : self.onConnect((client,address)),"onConnect")                
                 print(f"(WS) : {str(datetime.now())} Connection Established {address}")
-           
+
             #Typical Message
-            except Exception as f: 
-                print(f"(WS) : {str(datetime.now())} Received Message {address}")
-                decoded = SocketBin(data)                               
-                self.onMessage(data=decoded,sender_client=client)
+            except Exception: 
+                print(f"(WS) : {str(datetime.now())} Received Message {address}")                
+                decoded = SocketBin(data)
+                self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                               
         client.close()
 
 class RoutedWebsocketServer(WebsocketServer):
@@ -235,6 +227,7 @@ class RoutedWebsocketServer(WebsocketServer):
 
     def AwaitMessage(self,client,address):
         path : str
+        send_function = self.send
         while True:
             try:
                 data = client.recv(self.global_max_size)
@@ -260,21 +253,22 @@ class RoutedWebsocketServer(WebsocketServer):
                     print(f"(WS) : {str(datetime.now())} Connection Not Found \"{path}\" {address}")
                     client.close();break
 
-                #Send the 'OK' Response to the client
-                HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key']) #TODO NOTE BUG CHECK IF ACCEPT CLIENT
-                client.send(HTTP_MSG)
+                #Let the onConnect function handle what to do next (either send 'OK' Response to the client,do nothing or close)
+                CWM = self.routes[path]["view"]
+                hndl = self.handleTraceback(lambda x : CWM.onConnect(client=client,path_info=self.routes[path],send_function=send_function,headers=headers,key=headers['Sec-WebSocket-Key']),"onConnect",path)  
+                if not hndl:
+                    print(f"(WS) {path} : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
+                    return client.close() #Close if there was an Exception or return None
+               
                 num_client : int = self.routes[path]['clients'].__len__()+1
                 print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
-                
-                #Add him to the clients-list
+
+                #Add him to the clients-list (current route)
                 self.routes[path]['clients'].append(client)
-                CWM = self.routes[path]["view"]
-            
+
             #Websocket Message
             except: 
                 print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
                 decoded = SocketBin(data)    
-                send_function = self.send
-                CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function)
-
+                self.handleTraceback(lambda x : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=send_function),"onMessage",path)
         client.close()

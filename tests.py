@@ -64,6 +64,22 @@ URLS : dict = {
 }
 
 class CustomRoute(SocketView):
+    def onConnect(self,client,**kwargs):
+        #Get the **kwarg arguments
+        key = kwargs.get("key")
+        path_info = kwargs.get("path_info")
+        send = kwargs.get('send_function')
+        msg_to_send = "{} has connected!".format(self.get_client_ip(client))
+
+        #Accept the user send send him the message
+        self.accept(client=client,key=key) #Accept the client request
+        send(client,msg_to_send)
+
+
+        #Send the message to all the clients in the same path that someone has connected
+        for client in path_info['clients']:
+            send(client,msg_to_send)
+        return True
 
     def onMessage(self,**kwargs):
         """Gets called when a message is received from the client side"""
@@ -72,6 +88,14 @@ class CustomRoute(SocketView):
         send = kwargs.get('send_function')
         for client in path_info['clients']:
             send(client,data)
+
+    def onExit(self,client,**kwargs):
+        print("EXITING")
+        path_info = kwargs.get("path_info")
+        send = kwargs.get('send_function')
+        for client in path_info['clients']:
+            send(client,"{} has left!".format(self.get_client_ip(client)))
+
 
 class ChatRoute(CustomRoute):
     pass

@@ -90,15 +90,22 @@ class SocketView:
     def onMessage(self,**kwargs):
         pass
 
-    def onExit(self,client):
+    def onExit(self,client,**kwargs):
         pass
     
-    def onConnect(self,client):
+    def onConnect(self,client,**kwargs) -> bool:
         pass
 
     def send(self,client,socketfunction):
         pass
 
+    def get_client_ip(self,client) -> str:
+        return client.getsockname()[0]
+
+    def accept(self,client,key : str) -> None:
+        """Accept client WebSocket Connection"""
+        HTTP_MSG = status.Http101().__call__(key)
+        client.send(HTTP_MSG)
 
 def template(path : str,usePythonScript : bool = False,context : dict =  {}):
     with open(path,'r') as f:
