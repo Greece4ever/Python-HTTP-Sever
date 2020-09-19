@@ -1,15 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     <title>Document</title>
 </head>
 <body>
 <?python
-    for item in $$names$$:
-        html(<div style="color : red">{item}</div>)endhtml
+    for num in range(20):
+        html(
+            <div>
+                <label>This is the {num}{"th" if bool(num > 3 or num ==0) else "st" if num == 1 else "nd" if num ==2 else "rd"} Number
+                <b>{ num } </b>
+            </div>
+        )endhtml
 ?>
-
 </body>
 </html>

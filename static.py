@@ -1,5 +1,27 @@
+"""
+FOR HANDLING PYTHON SCRIPTS IN HTMLS PAGES
+TO DECLARE A SCRIPT INSIDE A PAGE USE:
+
+SAMPLE HTML FILE:
+
+<?python
+    for num in range(20):
+        html(
+            <div>
+                <label>This is the {num}{"th" if bool(num > 3 or num ==0) else "st" if num == 1 else "nd" if num ==2 else "rd"} Number
+                <b>{ num } </b>
+            </div>
+        )endhtml
+?>
+"""
 import re
-# from routes import template
+import os
+
+class StaticDirs:
+    def __init__(self,path):
+        for file,dir,pathname in os.walk(path):
+            pass
+
 
 def popAll(item):
     item.pop(0)
@@ -40,5 +62,8 @@ def findScript(html,content):
             html = html.replace(statement,"\n".join(INDEX))
             STATEMENTS.append(statement)
         except Exception as f:
+            if type(f) == ValueError:
+                break
             raise f    
     return html
+

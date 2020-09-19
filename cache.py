@@ -1,5 +1,7 @@
 """
-Use a simple sqlite3 db for simply caching things
+For caching Requests and saving them in a small SQLITE3 Local DB\n
+Normal CACHE Parameter is the IP of the REQUESTED CLIENT\n
+You can create multiple CACHES in one DB or create more than one DB'S\n
 """
 import sqlite3
 import time
@@ -68,7 +70,6 @@ class Cache:
             return True
         self.save(ip,0) #Set The Connection Attempts to 0
         return True
-
 
     def CacheDecorator(self,function : callable):
         """Save into Cache visits at a page"""

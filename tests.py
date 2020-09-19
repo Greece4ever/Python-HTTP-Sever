@@ -30,29 +30,29 @@ class Chat(View):
 
 class Chat2(View):
     def GET(self,request):
-        return status.Http200().__call__(template("Examples/socket.html"))
+        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
 
 class RView(View):
     def GET(self,request):
-        page_num = request['method'].split('/')[-1]
-        return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
+        context = {
+            'words' :["a",
+                    "abandon",
+                    "ability",
+                    "able",
+                    "abortion",
+                    "about",
+                    "above",
+                    "abroad",
+                    "absence",
+                    "absolute",
+                    "absolutely",
+                    "absorb",
+                            ]
+        }
+        # page_num = request['method'].split('/')[-1]
+        # return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
+        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context=context))
 
-class Axios(View):
-    def GET(self, request):
-        s = ["a",
-            "abandon",
-            "ability",
-            "able",
-            "abortion",
-            "about",
-            "above",
-            "abroad",
-            "absence",
-            "absolute",
-            "absolutely",
-            "absorb",
-                ]
-        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context={'names' : s}))
 
 URLS : dict = {
     "/" : Home(),
@@ -62,7 +62,6 @@ URLS : dict = {
     '/chat' : Chat(),
     '/chat2' : Chat2(),
     r'\/profiles\/(\w+)(\/)?' : RView(),
-    r'/nums\/(\d+)' : Axios()
 }
 
 class CustomRoute(SocketView):

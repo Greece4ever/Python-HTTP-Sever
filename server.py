@@ -6,7 +6,7 @@ import re
 import threading
 from communications import SocketBin,SocketBinSend
 from typing import Any
-import traceback
+from traceback import print_exception
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -64,7 +64,8 @@ class HttpServer:
                 try:
                     headers['IP'] = self.get_client_ip(client)
                     client.send(URLS.get(url).__call__(headers))
-                except Exception:
+                except Exception as f:
+                    print_exception(type(f),f,f.__traceback__)
                     client.send(status.Http500().__call__("<h1>500 Internal Server Error</h1>"))
                 finally:
                     return client.close()
