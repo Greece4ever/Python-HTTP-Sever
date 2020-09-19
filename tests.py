@@ -1,5 +1,5 @@
 from server import WebsocketServer,HttpServer,RoutedWebsocketServer
-from routes import View,template,static,ApiView,SocketView
+from routes import View,template,static,ApiView,SocketView,static_read
 import status
 import threading
 import datetime
@@ -53,6 +53,13 @@ class RView(View):
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context=context))
 
 
+class Imgres(View):
+    def GET(self,request,**kwargs):
+        file_path = r'C:\Users\progr\OneDrive\Υπολογιστής\ΜΕΘΟΔΟΣ NEWTON.pdf'
+        s = status.HttpBinary().__call__('ΜΕΘΟΔΟΣ NEWTON.pdf',file_path,200)
+        kwargs.get('snd')(s)
+        static_read(file_path,kwargs.get('snd'))
+
 URLS : dict = {
     "/" : Home(),
     "/static" : StaticBinary(),
@@ -60,6 +67,7 @@ URLS : dict = {
     '/another' : ShitJson(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
+    r'(\/)images\/(\d+)(\/)?' : Imgres(),
     r'\/profiles\/(\w+)(\/)?' : RView(),
 }
 
@@ -95,7 +103,6 @@ class CustomRoute(SocketView):
         send = kwargs.get('send_function')
         for client in path_info['clients']:
             send(client,"{} has left!".format(self.get_client_ip(client)))
-
 
 class ChatRoute(CustomRoute):
     pass

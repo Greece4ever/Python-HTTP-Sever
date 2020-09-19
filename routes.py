@@ -19,35 +19,36 @@ class View:
             "PATCH" : self.PATCH
         }
 
-    def GET(self,request):
+    def GET(self,request,**kwargs):
         return status.Http405().__call__(UI405("GET"))
 
-    def POST(self,request):
+    def POST(self,request,**kwargs):
         return status.Http405().__call__(UI405("POST"))
 
-    def HEAD(self,request):
+    def HEAD(self,request,**kwargs):
         return status.Http405().__call__(UI405("HEAD"))
 
-    def PUT(self,request):
+    def PUT(self,request,**kwargs):
         return status.Http405().__call__(UI405("PUT"))
 
-    def DELETE(self,request):
+    def DELETE(self,request,**kwargs):
         return status.Http405().__call__(UI405("DELETE"))
 
-    def CONNECT(self,request):
+    def CONNECT(self,request,**kwargs):
         return status.Http405().__call__(UI405("CONNECT"))
 
-    def OPTIONS(self,request):
+    def OPTIONS(self,request,**kwargs):
         return status.Http405().__call__(UI405("OPTIONS"))
 
-    def TRACE(self,request):
+    def TRACE(self,request,**kwargs):
         return status.Http405().__call__(UI405("TRACE"))
 
-    def PATCH(self,request):
+    def PATCH(self,request,**kwargs):
         return status.Http405().__call__(UI405("PATCH"))
 
-    def __call__(self,request):
-        return self.cases.get(request['method'].split(" ")[0].upper())(request)
+    def __call__(self,request,**kwargs):
+        print(kwargs)
+        return self.cases.get(request['method'].split(" ")[0].upper())(request,kwargs=kwargs)
 
 class ApiView(View):
     def __init__(self):
@@ -118,3 +119,20 @@ def static(path : str):
     with open(path,'rb+') as f:
         data = f.read()
     return data
+
+def read_in_chunks(file_object, chunk_size=1024):
+    """Lazy function (generator) to read a file piece by piece.
+    Default chunk size: 1k."""
+    while True:
+        data = file_object.read(chunk_size)
+        if not data:
+            break
+        yield data
+
+def static_read(file,process):
+    with open('Examples/index.html','rb') as f:
+        for piece in read_in_chunks(f):
+            process(piece)
+
+if __name__ == "__main__":
+    pass

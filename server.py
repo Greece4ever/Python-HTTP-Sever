@@ -78,7 +78,8 @@ class HttpServer:
             if match: #linear search is the only way to go with regex
                 try:
                     headers['IP'] = self.get_client_ip(client)
-                    client.send(URLS.get(url).__call__(headers))
+                    URLS.get(url).__call__(headers,snd=client.send)
+                    # client.send(URLS.get(url).__call__(headers,snd=client.send))
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     client.send(status.Http500().__call__(self.page500))

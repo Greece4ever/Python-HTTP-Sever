@@ -56,15 +56,26 @@ class Http200(Exception):
                 +template.encode())    
 
 class HttpBinary(Exception):
+    """For transfering binaries-files
+        through HTTP with the correct
+        Content-Type atribute header
+    """
     @classmethod
-    def __call__(self,template,path):
-        content_type : str = magic.from_file(path,mime=True)
-        return (b"HTTP/1.1 200 OK\n"
+    def __call__(self,template,path,status):
+        code = NUM_STATUS.get(str(status))
+        assert code is not None,"Invalid HTTP Response Code \"{}\"".format(status) 
+        content_type : str = magic.from_file(path,mime=True) #Get the correct Content-Type
+        return (f"HTTP/1.1 {code}\n".encode()
                 +f"Content-Type: {content_type}\n".encode()
                 +b"\n" 
                 +template)
 
 class HttpJson(Exception):
+    """
+    For correctly transfering JSON
+    data through HTTP that do not
+    need to be parsed by JavaScript
+    """
     @classmethod
     def __call__(self,template,status):
         try:
