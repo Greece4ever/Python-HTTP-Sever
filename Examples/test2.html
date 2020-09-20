@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+<?python
+    for item in $$random$$:
+        html(
+            <div style="color : rgb({ item[0] },{ item[1] }, { item[2]})">{ item[0] },{ item[1] }, { item[2]}</div>
+        )endhtml
+?>
+<img src="/images/1">
+</body>
+</html>
