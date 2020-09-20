@@ -29,14 +29,16 @@ class HttpServer:
 
     """
 
-    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,http : bool = True,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
-        print(f"Starting local {'HTTP' if http else 'WS'} Server on {host}:{port}")
+    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
+        isHttp = kwargs.get('http')
+        print(f"Starting local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'General'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
         self.connection : socket.socket = socket.socket()
         self.connection.bind(self.adress)
         self.urls : dict = kwargs.get("URLS")
         self.page404 : callable = page404 
         self.page500 : str = page500
+        del isHttp
 
     def ParseHeaders(self,request : Union[bytes,str]):
         """For parsing the HTTP headers and giving them
@@ -67,7 +69,9 @@ class HttpServer:
            and then closing the connection
         """
         client,address = client 
+        print("WAITING FOR MSGS")
         request = client.recv(1024) #Await for messages
+        print("NOT WAITING")
         if len(request) == 0:
             return client.close()
         headers = self.ParseHeaders(request)
@@ -117,10 +121,12 @@ class WebsocketServer(HttpServer):
        param max_size : int = 4096 (The Maximun number of data that can be transmitted in one Message)
     """
 
-    def __init__(self,host : str = LOCALHOST,port : int = 8000,max_size : int = 4096):
+    def __init__(self,host : str = LOCALHOST,port : int = 8000,max_size : int = 4096,**kwargs):
         self.clients : list = [] #Store all the clients
         self.max_size = max_size
-        super(WebsocketServer,self).__init__(host=host,port=port,http=False)
+        isHttp = kwargs.get('http')
+        super(WebsocketServer,self).__init__(host=host,port=port,http=f'{"WS" if isHttp is None else "Standar Server"}')
+        del isHttp
 
     def AwaitSocket(self,add_to_clients : bool = True):
         """Wait for new connections"""
@@ -220,12 +226,12 @@ class RoutedWebsocketServer(WebsocketServer):
 
     """
 
-    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096):
+    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs):
         self.global_max_size = global_max_size
         self.routes : dict = {}
         for item in paths:
             self.routes[item] =  {"clients" : [],"view" : paths[item]}
-        super(RoutedWebsocketServer,self).__init__(host,port)
+        super(RoutedWebsocketServer,self).__init__(host,port,**kwargs)
         del self.clients;del self.max_size
 
     def AwaitSocket(self):
@@ -284,20 +290,23 @@ class RoutedWebsocketServer(WebsocketServer):
         client.close()
 
 
-class Server(HttpServer,RoutedWebsocketServer):
-    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096):
-        super(RoutedWebsocketServer, self).__init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096)
+class Server(RoutedWebsocketServer):
+    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs):
+        super(Server, self).__init__(paths,host,port,global_max_size,http='')
 
-    
     def AwaitRequest(self):
         """Wait for requests to be made"""
         self.connection.listen(1)
-        #Start thread not to block request
         while True:
             client = self.connection.accept()
-            msg = client.recv(1024)
-            print(msg)
-            # t = threading.Thread(target=self.HandleRequest,args=(client,self.urls))
-            # t.start()
-
-    
+            msg = client[0].recv(1024)
+            hdrs = self.ParseHeaders(msg)
+            print(hdrs)
+            if ('Upgrade' in hdrs and hdrs['Upgrade']=='websocket') :
+                print("UPGRADE IN ")
+                t = threading.Thread(target=self.AwaitMessage,args=(client[0],client[1]))
+                t.start()
+            else:
+                print("Upgrade not in")
+                t = threading.Thread(target=self.HandleRequest,args=(client,self.urls))
+                t.start()

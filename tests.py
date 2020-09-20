@@ -1,4 +1,4 @@
-from server import WebsocketServer,HttpServer,RoutedWebsocketServer
+from server import WebsocketServer,HttpServer,RoutedWebsocketServer,Server
 from routes import View,template,SocketView
 import status
 import threading
@@ -107,11 +107,16 @@ PATHS = {
     '/chat' : ChatRoute(ChatRoute)
 }
 
-HTTP_SERVER = HttpServer(URLS=URLS)
-WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
+URLS['/SQL'] = CustomRoute()
 
-t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
-t.start()
+server = Server(URLS,port=80)
+server.AwaitRequest()
 
-t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
-t.start()
+# HTTP_SERVER = HttpServer(URLS=URLS)
+# WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
+
+# t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
+# t.start()
+
+# t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
+# t.start()
