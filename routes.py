@@ -94,6 +94,9 @@ class SocketView:
         HTTP_MSG = status.Http101().__call__(key)
         client.send(HTTP_MSG)
 
+    def MaxSize(self):
+        return self.max_size
+
 def template(path : str,usePythonScript : bool = False,context : dict =  {}):
     with open(path,'r') as f:
         data = f.read()

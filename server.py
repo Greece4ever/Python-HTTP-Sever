@@ -2,7 +2,7 @@ import socket
 from typing import Union
 import status
 from datetime import datetime
-import re,io
+import re
 import threading
 from communications import SocketBin,SocketBinSend
 from typing import Any
@@ -15,8 +15,6 @@ def lazy_read(file): #Function to lazy read
         if not data:
             break
         yield data
-
-
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -63,6 +61,32 @@ class HttpServer:
             HEADERS[spl[0].strip()] = spl[1].strip()
         return HEADERS
 
+    def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict) -> None:
+        #Loop thorugh each URL searching for the TARGET
+        target = headers["method"].split(" ")[1]
+        for url in URLS:
+            match = re.fullmatch(url,target) #full regex match
+            if match: #linear search is the only way to go with regex
+                try:
+                    headers['IP'] = self.get_client_ip(client)
+                    msg = URLS.get(url).__call__(headers)
+                    if isinstance(msg,tuple): #Binary? file
+                        with open(msg[1],'rb+') as file:
+                            client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
+                            for chunk in lazy_read(file):
+                                client.send(chunk) #Lazy-send the chunks
+                    else:
+                        client.send(msg)
+                except Exception as f:
+                    print_exception(type(f),f,f.__traceback__)
+                    client.send(status.Http500().__call__(self.page500))
+                finally:
+                    return client.close()
+        #Page was not found
+        client.send(status.Http404().__call__(self.page404(target)))
+        return client.close()
+
+
     def AwaitRequest(self):
         """Wait for requests to be made"""
         self.connection.listen(1)
@@ -73,10 +97,12 @@ class HttpServer:
             t.start()
 
     def HandleRequest(self,client,URLS : dict):
-        """Handle the requests
-           giving the the target route view
-           and then closing the connection
-           Called Only once and then thread exits
+        """
+           ** Method that handles the requests\r
+           ** when they are first made,\r
+           ** giving the the target route view\r
+           ** and then closing the connection\r
+           ** Called Only once and then thread exits\r
         """
         client,address = client 
         request = client.recv(1024) #Await for messages
@@ -84,29 +110,8 @@ class HttpServer:
             return client.close()
         headers = self.ParseHeaders(request)
         print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
-        URL = headers["method"]
-        target = URL.split(" ")[1]
-        for url in URLS:
-            match = re.fullmatch(url,target)
-            if match: #linear search is the only way to go with regex
-                try:
-                    headers['IP'] = self.get_client_ip(client)
-                    msg = URLS.get(url).__call__(headers)
-                    if isinstance(msg,tuple): #Binary file
-                        with open(msg[1],'rb+') as file:
-                            client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
-                            for chunk in lazy_read(file):
-                                client.send(chunk) #Lazy send the chunks
-                    else:
-                        client.send(msg)
-                except Exception as f:
-                    print_exception(type(f),f,f.__traceback__)
-                    client.send(status.Http500().__call__(self.page500))
-                finally:
-                    return client.close()
+        return self.handleHTTP(client,headers, URLS)
 
-        client.send(status.Http404().__call__(self.page404(target)))
-        return client.close()
 
     def get_client_ip(self,client):
         return client.getsockname()[0]
@@ -145,14 +150,12 @@ class WebsocketServer(HttpServer):
             client,adress = self.connection.accept()
             if add_to_clients:
                 self.clients.append(client)
-            t = threading.Thread(target=self.AwaitMessage,args=(client,adress))
-            t.start()
+            # threading.Thread(target=self.AwaitMessage,args=(client,adress)).start()
+            threading.Thread(target=self.handleWebSocket,args=(client,adress)).start()
 
     def onMessage(self,**kwargs):
         """Gets called when a message is received from the client side"""
-        data = kwargs.get('data')
-        for client in self.clients:
-            self.send(client,data)
+        pass
 
     def onExit(self,client):
         """Called when a client exits
@@ -172,7 +175,6 @@ class WebsocketServer(HttpServer):
     def send(self,client,data : str) -> None:
         """Sends data to a client"""
         client.send(SocketBinSend(data))
-
 
     def handleDisconnect(self,client,list_of_clients : Any = None):
         if list_of_clients is None:
@@ -247,6 +249,37 @@ class RoutedWebsocketServer(WebsocketServer):
     def AwaitSocket(self):
         super(RoutedWebsocketServer,self).AwaitSocket(add_to_clients=False)
 
+    def handleWebSocket(self,client,address):
+        #Wait for the Request and parse the headers
+        data = client.recv(self.global_max_size) 
+        headers : dict = self.ParseHeaders(data)
+        path : str = headers['method'].split(" ")[1]
+
+        if not path in self.routes:
+            print(f"(WS) : {str(datetime.now())} Connection Not Found \"{path}\" {address}")
+            return client.close()
+
+        #Get The View and call the onConnect function
+        CWM = self.routes[path]["view"]
+        hndl = self.handleTraceback(lambda _ : CWM.onConnect(client=client,path_info=self.routes[path],send_function=self.send,headers=headers,key=headers['Sec-WebSocket-Key']),"onConnect",path)  
+        
+        if not hndl:
+            print(f"(WS) {path} : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
+            return client.close() #Close if there was an Exception or return None
+        
+        #Increment the number of clients and print 
+        num_client : int = self.routes[path]['clients'].__len__()+1
+        print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
+
+        #Add them to the clients-list (current route)
+        self.routes[path]['clients'].append(client)
+        while True:
+            data = client.recv(CWM.MaxSize())
+            print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
+            decoded = SocketBin(data)    
+            self.handleTraceback(lambda _ : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=self.send),"onMessage",path)
+
+
     def AwaitMessage(self,client,address):
         path : str
         send_function = self.send
@@ -301,22 +334,19 @@ class RoutedWebsocketServer(WebsocketServer):
 
 
 class Server(RoutedWebsocketServer):
+    
     def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs):
         super(Server, self).__init__(paths,host,port,global_max_size,http='')
-
-    def AwaitRequest(self):
-        """Wait for requests to be made"""
-        self.connection.listen(1)
-        while True:
-            client = self.connection.accept()
-            msg = client[0].recv(1024)
-            hdrs = self.ParseHeaders(msg)
-            print(hdrs)
-            if ('Upgrade' in hdrs and hdrs['Upgrade']=='websocket') :
-                print("UPGRADE IN ")
-                t = threading.Thread(target=self.AwaitMessage,args=(client[0],client[1]))
-                t.start()
-            else:
-                print("Upgrade not in")
-                t = threading.Thread(target=self.HandleRequest,args=(client,self.urls))
-                t.start()
+    
+    def HandleRequest(self,client,URLS : dict):
+        client,address = client 
+        request = client.recv(1024) #Await for messages
+        if len(request) == 0:
+            return client.close()
+        headers = self.ParseHeaders(request)
+        print(f'(Server) : {headers["method"]} | {str(datetime.now())} : {address}')
+        if 'Upgrade' in headers:
+            if headers['Upgrade'].lower()=='websocket':
+                ...
+                # return threading.Thread(target=,args=()).start()
+        return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
