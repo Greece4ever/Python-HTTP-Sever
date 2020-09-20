@@ -53,6 +53,15 @@ class Imgres(View):
     def GET(self,request):
         return status.HttpBinary().__call__("megalos.PNG",200)
 
+class SampleView(View):
+    def GET(self,request):
+        from random import random
+        context = {
+            'random' : [
+                [int(random() * 255) for _ in range(3)] for __ in range(10) ]
+        }
+        return status.Http200().__call__(template("Examples/test2.html",usePythonScript=True,context=context))
+
 URLS : dict = {
     "/" : Home(),
     '/another' : ShitJson(),
@@ -60,6 +69,7 @@ URLS : dict = {
     '/chat2' : Chat2(),
     r'(\/)images\/(\d+)(\/)?' : Imgres(),
     r'\/profiles\/(\w+)(\/)?' : RView(),
+    r'(\/)tests(\/)(\d+)(\/)?' : SampleView()
 }
 
 class CustomRoute(SocketView):

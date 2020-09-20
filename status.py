@@ -6,6 +6,8 @@
 
 import json #For json
 import io #for recognising files
+from communications import content_types #for getting the correct content-type
+from typing import Tuple
 
 #For Handling Websockets
 from base64 import b64encode 
@@ -59,16 +61,21 @@ class HttpBinary(Exception):
     """For transfering binaries-files (or any file really) through HTTP 
     """
     @classmethod
-    def __call__(self,path,code):
-        status = NUM_STATUS.get(str(code))
-        assert (status is not None), "Invalid Status code \"{}\"".format(code)
-        filename = path.split("\\")[-1]
-        rhttp = (f"HTTP/1.1 {code} {status}\r\n".encode()
-                # +b"Content-Type: application/pdf\r\n"
-                +"Content-Length : {}\r\n".format(path).encode()
+    def __call__(self,path,code) -> Tuple[callable,str]:
+        status = NUM_STATUS.get(str(code)) #Get the status code message
+        assert (status is not None), "Invalid Status code \"{}\"".format(code) #raise exception if it does not exist
+        filename = path.split("\\")[-1] #get the filename
+        ctype = content_types.get('.' + filename.split(".")[-1].lower()) #get the mime for the file type (.FILETYPE)
+        ctype = '' if ctype is None else "Content-Type: {}\r\n".format(ctype) 
+
+        #Return callabe
+        return (lambda size : (
+                f"HTTP/1.1 {code} {status}\r\n".encode()
+                + ctype.encode()
+                +"Content-Length : {}\r\n".format(size).encode()
                 +"Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
-                +b"\r\n")
-        return (rhttp,path) #http response with file path
+                +b"\r\n"
+        ),path)
 
 class HttpJson(Exception):
     """

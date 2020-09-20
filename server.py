@@ -92,11 +92,11 @@ class HttpServer:
                 try:
                     headers['IP'] = self.get_client_ip(client)
                     msg = URLS.get(url).__call__(headers)
-                    if isinstance(msg,tuple):
+                    if isinstance(msg,tuple): #Binary file
                         with open(msg[1],'rb+') as file:
-                            client.send(msg[0])
+                            client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
                             for chunk in lazy_read(file):
-                                client.send(chunk)
+                                client.send(chunk) #Lazy send the chunks
                     else:
                         client.send(msg)
                 except Exception as f:
