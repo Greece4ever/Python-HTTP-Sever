@@ -16,10 +16,6 @@ class Home(View):
             return status.Http200().__call__("Home Page") 
         return status.Http429().__call__("Too many requests 429")
 
-class StaticBinary(View):
-    def GET(self,request):
-        return status.HttpBinary().__call__("readme.md")
-
 class ShitJson(View):
     def GET(self,request):
         return status.HttpJson().__call__({"hello" : 1},200)
@@ -55,11 +51,10 @@ class RView(View):
 
 class Imgres(View):
     def GET(self,request):
-        return status.HttpBinary().__call__("megalos.PNG")
+        return status.HttpBinary().__call__("megalos.PNG",200)
 
 URLS : dict = {
     "/" : Home(),
-    "/static" : StaticBinary(),
     '/another' : ShitJson(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
@@ -109,14 +104,14 @@ PATHS = {
 
 URLS['/SQL'] = CustomRoute()
 
-server = Server(URLS,port=80)
-server.AwaitRequest()
+# server = Server(URLS,port=80)
+# server.AwaitRequest()
 
-# HTTP_SERVER = HttpServer(URLS=URLS)
-# WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
+HTTP_SERVER = HttpServer(URLS=URLS)
+WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
 
-# t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
-# t.start()
+t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
+t.start()
 
-# t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
-# t.start()
+t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
+t.start()

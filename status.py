@@ -4,7 +4,6 @@
     using the .__call__ method and the html you want to render\n
 """
 
-import magic #For Binary Files
 import json #For json
 import io #for recognising files
 
@@ -57,13 +56,19 @@ class Http200(Exception):
                 +template.encode())    
 
 class HttpBinary(Exception):
-    """For transfering binaries-files
-        through HTTP with the correct
-        Content-Type atribute header
+    """For transfering binaries-files (or any file really) through HTTP 
     """
     @classmethod
-    def __call__(self,path):
-        return (path,0)
+    def __call__(self,path,code):
+        status = NUM_STATUS.get(str(code))
+        assert (status is not None), "Invalid Status code \"{}\"".format(code)
+        filename = path.split("\\")[-1]
+        rhttp = (f"HTTP/1.1 {code} {status}\r\n".encode()
+                # +b"Content-Type: application/pdf\r\n"
+                +"Content-Length : {}\r\n".format(path).encode()
+                +"Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
+                +b"\r\n")
+        return (rhttp,path) #http response with file path
 
 class HttpJson(Exception):
     """

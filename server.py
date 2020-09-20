@@ -7,6 +7,15 @@ import threading
 from communications import SocketBin,SocketBinSend
 from typing import Any
 from traceback import print_exception
+from os.path import getsize
+
+def lazy_read(file): #Function to lazy read
+    while True:
+        data = file.read(1024)
+        if not data:
+            break
+        yield data
+
 
 
 LOCALHOST : str = "127.0.0.1"
@@ -67,11 +76,10 @@ class HttpServer:
         """Handle the requests
            giving the the target route view
            and then closing the connection
+           Called Only once and then thread exits
         """
         client,address = client 
-        print("WAITING FOR MSGS")
         request = client.recv(1024) #Await for messages
-        print("NOT WAITING")
         if len(request) == 0:
             return client.close()
         headers = self.ParseHeaders(request)
@@ -85,8 +93,10 @@ class HttpServer:
                     headers['IP'] = self.get_client_ip(client)
                     msg = URLS.get(url).__call__(headers)
                     if isinstance(msg,tuple):
-                        with open(msg[0],'rb+') as file:
-                            client.sendfile(file)
+                        with open(msg[1],'rb+') as file:
+                            client.send(msg[0])
+                            for chunk in lazy_read(file):
+                                client.send(chunk)
                     else:
                         client.send(msg)
                 except Exception as f:
