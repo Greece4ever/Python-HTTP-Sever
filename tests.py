@@ -62,14 +62,24 @@ class SampleView(View):
         }
         return status.Http200().__call__(template("Examples/test2.html",usePythonScript=True,context=context))
 
+class PostView(View):
+    def GET(self, request):
+        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
+
+    def POST(self,request):
+        print("Recevied request",end="\n\n\n")
+        print(request)
+        return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
+
 URLS : dict = {
-    "/" : Home(),
+    r"^(\/)?" : Home(),
     '/another' : ShitJson(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
     r'(\/)images\/(\d+)(\/)?' : Imgres(),
     r'\/profiles\/(\w+)(\/)?' : RView(),
-    r'(\/)tests(\/)(\d+)(\/)?' : SampleView()
+    r'(\/)tests(\/)(\d+)(\/)?' : SampleView(),
+    r'/post' : PostView()
 }
 
 class CustomRoute(SocketView):

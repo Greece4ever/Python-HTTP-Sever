@@ -8,6 +8,7 @@ from communications import SocketBin,SocketBinSend
 from typing import Any
 from traceback import print_exception
 from os.path import getsize
+from urllib.request import unquote
 
 def lazy_read(file): #Function to lazy read
     while True:
@@ -57,8 +58,19 @@ class HttpServer:
         HEADERS['method'] = XS.pop(0).replace("HTTP/1.1",'').strip()
         term : str
         for term in XS:
-            spl : list = term.split(":")
-            HEADERS[spl[0].strip()] = spl[1].strip()
+            spl : list = term.split(":",1)
+            key : str = spl[0].strip()
+            try:
+                value : str = spl[1].strip()
+                HEADERS[key] = value
+            except:
+                data : list = key.split('&')
+                form_data = {}
+                for item in data:
+                    item = item.split("=")
+                    form_data[item[0]] = unquote(item[1])
+                HEADERS['data'] = form_data
+
         return HEADERS
 
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict) -> None:
@@ -369,6 +381,7 @@ class Server(RoutedWebsocketServer):
         try:
             headers = self.ParseHeaders(request)
         except:
+            print(request)
             print(f'[WARNING] (Server) : Invalid Response | {str(datetime.now())} : {address}')
             return client.close()
         
@@ -381,3 +394,7 @@ class Server(RoutedWebsocketServer):
         print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
         #Regular HTTP Connection
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
+
+
+if __name__ == '__main__':
+    pass
