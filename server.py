@@ -9,6 +9,7 @@ from typing import Any
 from traceback import print_exception
 from os.path import getsize
 from urllib.request import unquote
+from math import ceil
 
 def lazy_read(file): #Function to lazy read
     while True:
@@ -52,11 +53,20 @@ class HttpServer:
         """For parsing the HTTP headers and giving them
            in  a Python Dictionary format
         """
+        status : int = 0
         HEADERS = {}
-        XS = request.decode('utf-8').split("\r\n")
+        try:
+            XS = request.decode('utf-8').split("\r\n")
+        except UnicodeDecodeError as msg:
+
+            pos : int = int(str(msg).split('position')[-1].split(':')[0].strip())
+            XS = request[:pos].decode('utf-8').split("\r\n") 
+            status = 1
+
         XS = [item for item in XS if item.strip() != '']
         HEADERS['method'] = XS.pop(0).replace("HTTP/1.1",'').strip()
         term : str
+        j : int = 0
         for term in XS:
             spl : list = term.split(":",1)
             key : str = spl[0].strip()
@@ -64,13 +74,20 @@ class HttpServer:
                 value : str = spl[1].strip()
                 HEADERS[key] = value
             except:
+                if term.startswith('---'):
+                    HEADERS['DATA'] = XS[j:]
+                    break
                 data : list = key.split('&')
                 form_data = {}
                 for item in data:
                     item = item.split("=")
                     form_data[item[0]] = unquote(item[1])
                 HEADERS['data'] = form_data
+            finally:
+                j+=1
 
+        if bool(status):
+            HEADERS['binary'] = request[pos:]
         return HEADERS
 
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict) -> None:
@@ -378,13 +395,15 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
         
-        try:
-            headers = self.ParseHeaders(request)
-        except:
-            print(request)
-            print(f'[WARNING] (Server) : Invalid Response | {str(datetime.now())} : {address}')
-            return client.close()
-        
+        headers = self.ParseHeaders(request)
+        print(headers)
+        if 'Content-Length' in headers:
+            crem : int = int(headers['Content-Length']) - 1024
+            if (crem  > 0):
+                for _ in range(ceil(crem / 1024)):
+                    bindata = client.recv(1024)
+                    headers['binary'] += bindata
+                
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
@@ -397,4 +416,7 @@ class Server(RoutedWebsocketServer):
 
 
 if __name__ == '__main__':
-    pass
+    msg = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 56900\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36 OPR/71.0.3770.138\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nContent-Disposition: form-data; name="username"\r\n\r\ndsa\r\n------WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nContent-Disposition: form-data; name="file"; filename="xaxa.PNG"\r\nContent-Type: image/png\r\n\r\n\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03^\x00\x00\x03l\x08\x06\x00\x00\x00KjyT\x00\x00\x00\x01sRGB\x00\xae\xce\x1c'
+    x = Server('','')
+    print(len(msg))
+    # print(x.ParseHeaders(msg))

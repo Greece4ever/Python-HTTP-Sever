@@ -14,9 +14,9 @@
     </form>
 </div>
 <div>
-    <form action="/post" method="POST">
+    <form action="/post" enctype="multipart/form-data" method="POST">
         <input name="username" type="text">
-        <input name="file" type="file">
+        <input name="file" dir="auto" draggable="true" type="file">
         <input type="submit">
     </form>
 </div>

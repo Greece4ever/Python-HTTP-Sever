@@ -67,7 +67,6 @@ class PostView(View):
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
 
     def POST(self,request):
-        print("Recevied request",end="\n\n\n")
         print(request)
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
 
