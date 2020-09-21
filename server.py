@@ -372,7 +372,6 @@ class Server(RoutedWebsocketServer):
             print(f'[WARNING] (Server) : Invalid Response | {str(datetime.now())} : {address}')
             return client.close()
         
-        
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
