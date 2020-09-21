@@ -68,14 +68,7 @@ class PostView(View):
 
     def POST(self,request):
         print(request)
-        return status.Http200().__call__("""
-        <h1>Hello World</h1>
-        <h2>Hello World</h2>
-        <h3>Hello World</h3>
-        <h4>Hello World</h4>
-        <h5>Hello World</h5>
-        <h6>Hello World</h6>
-        """)
+        return status.Http200().__call__("""<title>Hello</title>""")
 
 URLS : dict = {
     r"^(\/)?" : Home(),

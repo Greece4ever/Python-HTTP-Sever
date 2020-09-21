@@ -7,7 +7,7 @@ import threading
 from communications import SocketBin,SocketBinSend
 from typing import Any
 from traceback import print_exception
-from os.path import getsize
+from os.path import getsize,join
 from urllib.request import unquote
 from math import ceil
 
@@ -26,6 +26,10 @@ class FileObject:
     def __str__(self):
         return self.name
 
+    def save(self,path : str,buffersize : int) -> None:
+        with open(join(path,self.name),'wb+') as file:
+            for chunk in iter(self.data):
+                file.writelines(chunk)
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
