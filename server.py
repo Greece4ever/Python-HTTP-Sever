@@ -18,6 +18,15 @@ def lazy_read(file): #Function to lazy read
             break
         yield data
 
+class FileObject:
+    def __init__(self,name,data):
+        self.name = name
+        self.data = data
+
+    def __str__(self):
+        return self.name
+
+
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
 STANDAR_404_PAGE : callable = lambda page : "<b>Page {} Was not Found (404 Status Code)</b>".format(page)
@@ -58,7 +67,6 @@ class HttpServer:
         try:
             XS = request.decode('utf-8').split("\r\n")
         except UnicodeDecodeError as msg:
-
             pos : int = int(str(msg).split('position')[-1].split(':')[0].strip())
             XS = request[:pos].decode('utf-8').split("\r\n") 
             status = 1
@@ -81,13 +89,13 @@ class HttpServer:
                 form_data = {}
                 for item in data:
                     item = item.split("=")
-                    form_data[item[0]] = unquote(item[1])
+                    form_data[item[0]] = unquote(item[1].replace("+",' '))
                 HEADERS['data'] = form_data
             finally:
                 j+=1
 
         if bool(status):
-            HEADERS['binary'] = request[pos:]
+            HEADERS['files'] = request[pos:]
         return HEADERS
 
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict) -> None:
@@ -226,7 +234,7 @@ class WebsocketServer(HttpServer):
         """While a client is connected,
            this method is executing
            in an infinite loop checking
-           if they are sending messagess
+           if they are sending messages
         """
         while True:
             try:
@@ -396,22 +404,24 @@ class Server(RoutedWebsocketServer):
             return client.close()
         
         headers = self.ParseHeaders(request)
-        print(headers)
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
             if (crem  > 0):
+                if not 'files' in headers:
+                    headers['files'] = b''
                 for _ in range(ceil(crem / 1024)):
                     bindata = client.recv(1024)
-                    headers['binary'] += bindata
-                
+                    headers['files'] += bindata
+                headers['files'] = FileObject('file.pnm',headers['files'])
+        
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
                 print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
                 return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
         
-        print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
-        #Regular HTTP Connection
+        
+        print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
 
 

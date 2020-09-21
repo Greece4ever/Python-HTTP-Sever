@@ -54,6 +54,7 @@ class Http200(Exception):
     def __call__(self,template):
         return (b"HTTP/1.1 200 OK\n"
                 +b"Content-Type: text/html\n"
+                +b"Connection: close\n"
                 +b"\n" 
                 +template.encode())    
 
