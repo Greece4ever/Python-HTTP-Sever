@@ -250,8 +250,14 @@ class RoutedWebsocketServer(WebsocketServer):
         super(RoutedWebsocketServer,self).AwaitSocket(add_to_clients=False)
 
     def handleWebSocket(self,client,address):
+        """
+        A slightly more performant version of self.await message
+        that first waits for the WebSocket handshake and then
+        if it is sucessfull it establishes the connection
+        """
+
         #Wait for the Request and parse the headers
-        data = client.recv(self.global_max_size) 
+        data = client.recv(self.global_max_size) #TODO if wait time is more than n seconds close
         headers : dict = self.ParseHeaders(data)
         path : str = headers['method'].split(" ")[1]
 
@@ -274,11 +280,22 @@ class RoutedWebsocketServer(WebsocketServer):
         #Add them to the clients-list (current route)
         self.routes[path]['clients'].append(client)
         while True:
-            data = client.recv(CWM.MaxSize())
+            try:
+                data = client.recv(CWM.MaxSize())
+            except:
+                self.handleDisconnect(client,self.routes[path]['clients'])
+                self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
+                break
+
+            if len(data) == 0:
+                print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client,self.routes[path]['clients'])
+                self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
+                break
+            
             print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
             decoded = SocketBin(data)    
             self.handleTraceback(lambda _ : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=self.send),"onMessage",path)
-
 
     def AwaitMessage(self,client,address):
         path : str
@@ -340,13 +357,18 @@ class Server(RoutedWebsocketServer):
     
     def HandleRequest(self,client,URLS : dict):
         client,address = client 
-        request = client.recv(1024) #Await for messages
+        request = client.recv(1024) #Wait for a request
+
         if len(request) == 0:
             return client.close()
+        
         headers = self.ParseHeaders(request)
         print(f'(Server) : {headers["method"]} | {str(datetime.now())} : {address}')
+        
+        #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
-                ...
-                # return threading.Thread(target=,args=()).start()
+                return threading.Thread(target=self.handleWebSocket,args=(client,address)).start()
+        
+        #Regular HTTP Connection
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
