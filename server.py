@@ -38,7 +38,7 @@ class HttpServer:
 
     def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
         isHttp = kwargs.get('http')
-        print(f"Starting local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'General'} Server on {host}:{port}")
+        print(f"Starting local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
         self.connection : socket.socket = socket.socket()
         self.connection.bind(self.adress)
@@ -140,7 +140,8 @@ class WebsocketServer(HttpServer):
         self.clients : list = [] #Store all the clients
         self.max_size = max_size
         isHttp = kwargs.get('http')
-        super(WebsocketServer,self).__init__(host=host,port=port,http=f'{"WS" if isHttp is None else "Standar Server"}')
+        kwargs.pop('http')
+        super(WebsocketServer,self).__init__(host=host,port=port,http=f'{"WS" if isHttp is None else "Standar Server"}',**kwargs)
         del isHttp
 
     def AwaitSocket(self,add_to_clients : bool = True):
@@ -249,18 +250,20 @@ class RoutedWebsocketServer(WebsocketServer):
     def AwaitSocket(self):
         super(RoutedWebsocketServer,self).AwaitSocket(add_to_clients=False)
 
-    def handleWebSocket(self,client,address):
+    def handleWebSocket(self,client,address,**kwargs):
         """
         A slightly more performant version of self.await message
         that first waits for the WebSocket handshake and then
         if it is sucessfull it establishes the connection
         """
-
-        #Wait for the Request and parse the headers
-        data = client.recv(self.global_max_size) #TODO if wait time is more than n seconds close
-        headers : dict = self.ParseHeaders(data)
+        headers = kwargs.get('headers')
+        
+        if not headers: #On Plain WebSocket server here the request is sent 
+            data = client.recv(self.global_max_size) #TODO if wait time is more than n seconds close
+            headers : dict = self.ParseHeaders(data)
+        
+        #Check if the path is found
         path : str = headers['method'].split(" ")[1]
-
         if not path in self.routes:
             print(f"(WS) : {str(datetime.now())} Connection Not Found \"{path}\" {address}")
             return client.close()
@@ -352,23 +355,30 @@ class RoutedWebsocketServer(WebsocketServer):
 
 class Server(RoutedWebsocketServer):
     
-    def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs):
-        super(Server, self).__init__(paths,host,port,global_max_size,http='')
+    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs) -> None:
+        super(Server, self).__init__(socket_paths,host,port,global_max_size,http='',URLS=http_paths)
     
-    def HandleRequest(self,client,URLS : dict):
+    def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
         request = client.recv(1024) #Wait for a request
-
+        
+        #Client Exit        
         if len(request) == 0:
             return client.close()
         
-        headers = self.ParseHeaders(request)
-        print(f'(Server) : {headers["method"]} | {str(datetime.now())} : {address}')
+        try:
+            headers = self.ParseHeaders(request)
+        except:
+            print(f'[WARNING] (Server) : Invalid Response | {str(datetime.now())} : {address}')
+            return client.close()
+        
         
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
-                return threading.Thread(target=self.handleWebSocket,args=(client,address)).start()
+                print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
+                return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
         
+        print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
         #Regular HTTP Connection
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()

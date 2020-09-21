@@ -114,14 +114,16 @@ PATHS = {
 
 URLS['/SQL'] = CustomRoute()
 
-# server = Server(URLS,port=80)
-# server.AwaitRequest()
+server = Server(PATHS,URLS,port=80)
+server.AwaitRequest()
+# threading.Thread(target=server.AwaitRequest).start()
 
-HTTP_SERVER = HttpServer(URLS=URLS)
-WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
 
-t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
-t.start()
+# HTTP_SERVER = HttpServer(URLS=URLS)
+# WEBSOCKET_SERVER = RoutedWebsocketServer(PATHS)
 
-t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
-t.start()
+# t = threading.Thread(target=HTTP_SERVER.AwaitRequest) 
+# t.start()
+
+# t = threading.Thread(target=WEBSOCKET_SERVER.AwaitSocket)
+# t.start()
