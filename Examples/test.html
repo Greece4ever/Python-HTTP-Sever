@@ -8,19 +8,17 @@
 <body>
 <!-- <div>
     <form action="/post" method="POST">
-        <input name="username" type="text">
-        <input name="password" type="password">
+        <input name="Ονομα Χρηστη" type="text">
+        <input name="Κωδικος Χρηστη" type="password">
         <input type="submit">
     </form>
 </div> -->
 <div>
     <form action="/post" enctype="multipart/form-data" method="POST">
-        <!-- <input name="username" type="text"> -->
-        <input name="file" dir="auto" draggable="true" multiple="true" type="file">
-        <input type="submit">
+        <input name="pederastis" type="file" draggable="true" dropzone="true" multiple>
+        <input type="submit"> 
     </form>
 </div>
-
 
 
 <?python
@@ -33,4 +31,9 @@
         )endhtml
 ?>
 </body>
+<script>
+    document.body.addEventListener('drop',(e) => {
+        e.preventDefault()
+    })
+</script>
 </html>

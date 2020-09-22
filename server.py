@@ -82,13 +82,11 @@ class HttpServer:
                     try:
                         spl : list = j.split("=")
                         tmp[spl[0]] = spl[1]
-                    except Exception as f:
+                    except Exception:
                         tmp['unknown'].append(val)
-
 
             DATA.append(tmp)
 
-        print(DATA,end="\n\n\n\n")
         return data
 
     def ParseHeaders(self,request : Union[bytes,str]):
@@ -116,7 +114,9 @@ class HttpServer:
                 HEADERS[key] = value
             except:
                 if term.startswith('---'):
-                    HEADERS['DATA'] = self.ParseFormData(" ".join(XS[j:]))
+                    _s_ = self.ParseFormData(" ".join(XS[j:]))
+                    HEADERS['DATA'] = _s_
+                    print(_s_,end="\n\n\n")
                     break
                 data : list = key.split('&')
                 form_data = {}
@@ -436,6 +436,7 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
         
+        print(request.decode('utf-8'))
         headers = self.ParseHeaders(request)
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
@@ -444,6 +445,7 @@ class Server(RoutedWebsocketServer):
                     headers['files'] = b''
                 for _ in range(ceil(crem / 1024)):
                     bindata = client.recv(1024)
+                    print(bindata.decode('utf-8'))
                     headers['files'] += bindata
                 headers['files'] = FileObject('file.pnm',headers['files'])
         
@@ -453,12 +455,57 @@ class Server(RoutedWebsocketServer):
                 print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
                 return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
         
-        
+    
         print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
 
 
 if __name__ == '__main__':
-    msg = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 56900\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36 OPR/71.0.3770.138\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nContent-Disposition: form-data; name="username"\r\n\r\ndsa\r\n------WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nContent-Disposition: form-data; name="file"; filename="xaxa.PNG"\r\nContent-Type: image/png\r\n\r\n\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03^\x00\x00\x03l\x08\x06\x00\x00\x00KjyT\x00\x00\x00\x01sRGB\x00\xae\xce\x1c'
-    x = Server('','')
-    print(x.ParseHeaders(msg))
+    msg = b"POST /post HTTP/1.1\r\nHost: localhost\r\nUser-Agent: python-requests/2.23.0\r\nAccept-Encoding: gzip, deflate\r\nAccept: */*\r\nConnection: keep-alive\r\nContent-Length: 29\r\nContent-Type: application/x-www-form-urlencoded\r\nhey=1&hey=2&hey=3&hey=4&hey=5"
+
+    if '--' in msg: #POST multipart/form-data
+        y = msg.split('--')
+        x = y.pop(0)
+        for file in y:
+            [item for item in file.split('\n') if len(item.strip()) > 1]
+
+    y = msg.split(b"\r\n")
+    TMP_DICT = {}
+    TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
+    TMP_DICT['data'] = {}
+    for header in y:
+        spl : str = header.split(b':',1)
+        if len(spl) != 2:
+            if b'=' in spl[0]: #application/x-www-form-urlencoded
+                form_data : list = spl[0].split(b'&')
+                for elm in form_data:
+                    prs = elm.split(b'=')
+                    TMP_DICT['data'][unquote(prs[0].decode().replace("+"," "))] = unquote(prs[1].decode().replace("+"," "))
+            continue
+        key = spl[0].strip().decode()
+        value = spl[1].strip()
+        if b';' in value and not 'accept' in key.lower():
+            value = value.split(b';')
+            __tmp__ : list = []
+            for item in value:
+                if b'=' in item:
+                    item = item.split(b"=")
+                    name = item[0].decode().strip()
+                    attr_val = item[1].decode().strip().replace('"','')
+                    __tmp__.append({unquote(name.replace("+"," ")) : unquote(attr_val.replace("+"," "))})
+                else:
+                    __tmp__.append(item.decode())
+            value = __tmp__
+        else:
+            value = value.decode()
+
+        TMP_DICT[key] = value
+    
+    # print(msg.decode())
+    print(TMP_DICT)
+
+    # print(msg[:979].decode('utf-8'))
+    # x = Server('','')
+    # print(x.ParseHeaders(msg))
+
+

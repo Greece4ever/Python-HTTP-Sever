@@ -98,7 +98,7 @@ class SocketView:
         return self.max_size
 
 def template(path : str,usePythonScript : bool = False,context : dict =  {}):
-    with open(path,'r') as f:
+    with open(path,'r',encoding='utf-8') as f:
         data = f.read()
     if usePythonScript:
         data = st.findScript(data,context)
