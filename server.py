@@ -62,6 +62,35 @@ class HttpServer:
         self.page500 : str = page500
         del isHttp
 
+    def ParseFormData(self,data):
+        data = data.split('------')
+        data.pop(0) # empty str
+        DATA : list = []
+        for item in data:
+            s = item.split(' ',1)[-1].split(';')
+            s = [item.strip() for item in s]
+
+            val = s.pop(0)
+            tmp : dict = {}
+            tmp1 = val.split(":")
+            tmp[tmp1[0]] = tmp1[1]
+            tmp['unknown'] : list = []
+
+            for val in s:
+                itr : list = val.split(" ")
+                for j in itr:
+                    try:
+                        spl : list = j.split("=")
+                        tmp[spl[0]] = spl[1]
+                    except Exception as f:
+                        tmp['unknown'].append(val)
+
+
+            DATA.append(tmp)
+
+        print(DATA,end="\n\n\n\n")
+        return data
+
     def ParseHeaders(self,request : Union[bytes,str]):
         """For parsing the HTTP headers and giving them
            in  a Python Dictionary format
@@ -87,7 +116,7 @@ class HttpServer:
                 HEADERS[key] = value
             except:
                 if term.startswith('---'):
-                    HEADERS['DATA'] = XS[j:]
+                    HEADERS['DATA'] = self.ParseFormData(" ".join(XS[j:]))
                     break
                 data : list = key.split('&')
                 form_data = {}
@@ -432,5 +461,4 @@ class Server(RoutedWebsocketServer):
 if __name__ == '__main__':
     msg = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 56900\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36 OPR/71.0.3770.138\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nContent-Disposition: form-data; name="username"\r\n\r\ndsa\r\n------WebKitFormBoundarykgXlHXcDFfR8pdxB\r\nContent-Disposition: form-data; name="file"; filename="xaxa.PNG"\r\nContent-Type: image/png\r\n\r\n\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x03^\x00\x00\x03l\x08\x06\x00\x00\x00KjyT\x00\x00\x00\x01sRGB\x00\xae\xce\x1c'
     x = Server('','')
-    print(len(msg))
-    # print(x.ParseHeaders(msg))
+    print(x.ParseHeaders(msg))
