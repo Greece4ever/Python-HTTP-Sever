@@ -428,91 +428,22 @@ class Server(RoutedWebsocketServer):
     def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs) -> None:
         super(Server, self).__init__(socket_paths,host,port,global_max_size,http='',URLS=http_paths)
     
-    def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
-        client,address = client 
-        request = client.recv(1024) #Wait for a request
-        
-        #Client Exit        
-        if len(request) == 0:
-            return client.close()
-        
-        print(request.decode('utf-8'),end="\n\n\n")
-        headers = self.ParseHeaders(request)
-        if 'Content-Length' in headers:
-            crem : int = int(headers['Content-Length']) - 1024
-            if (crem  > 0):
-                if not 'files' in headers:
-                    headers['files'] = b''
-                for _ in range(ceil(crem / 1024)):
-                    bindata = client.recv(1024)
-                    print(bindata.decode('utf-8'))
-                    headers['files'] += bindata
-                headers['files'] = FileObject('file.pnm',headers['files'])
-        
-        #WebSocket Connection
-        if 'Upgrade' in headers:
-            if headers['Upgrade'].lower()=='websocket':
-                print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
-                return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
-        
-    
-        print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
-        return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
+    def quickParse(self,data):
+        y = data.split(b'\r\n')
+        TMP_DICT = {}
+        TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
+        try:
+            for header in y:
+                spl : str = header.split(b':',1)
+                key = spl[0].strip().decode()
+                value = spl[1].strip()
+                TMP_DICT[key] = value
+        except:
+            pass
+        return TMP_DICT
 
 
-if __name__ == '__main__':
-    import sys
-
-    msg = b"""Starting local HTTP & WS Server on 127.0.0.1:80
-            POST /post HTTP/1.1
-            Host: localhost
-            Connection: keep-alive
-            Content-Length: 714
-            Cache-Control: max-age=0
-            Upgrade-Insecure-Requests: 1
-            User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36 OPR/71.0.3770.138
-            Origin: http://localhost
-            Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryIQu5rstPJpneiCqH
-            Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
-            Sec-Fetch-Site: same-origin
-            Sec-Fetch-Mode: navigate
-            Sec-Fetch-User: ?1
-            Sec-Fetch-Dest: document
-            Referer: http://localhost/post
-            Accept-Encoding: gzip, deflate, br
-            Accept-Language: en-US,en;q=0.9
-
-            ------WebKitFormBoundaryIQu5rstPJpneiCqH
-            Content-Disposition: form-data; name="Username"
-
-            leonidasosfp1925
-            ------WebKitFormBoundaryIQu5rstPJpneiCqH
-            Content-Disposition: form-data; name="Password"
-
-            Data
-            ------WebKitFormBoundaryIQu5rstPJpneiCqH
-            Content-Disposition: form-data; name="Confirm P"
-
-            password123
-            ------WebKitFormBoundaryIQu5rstPJpneiCqH
-            Content-Disposition: form-data; name="Email Ad"
-
-            password123
-            ------WebKitFormBoundaryIQu5rstPJpneiCqH
-            Content-Disposition: form-data; name="Biography"
-
-            I have started learning python and I'm also a new user to Ubuntu. I need to know the ways of compiling the .py files. I have tried with the command
-
-
-            ------WebKitFormBoundaryIQu5rstPJpneiCqH--"""
-    if b'--' in msg: #POST multipart/form-data
-        hb = [item for item in msg.split(b'--') if len(item.strip()) > 1] #headers and body
-        hedrs = hb.pop(0) #Request Headers
-        # print(hedrs)
-        # for info in hb:
-        #     x = info.split(b'\n')
-        
-    def parse(y,splitter : bytes = b'\r\n'): #The default HTTP ending 
+    def parse(self,msg,splitter : bytes = b'\r\n'): #The default HTTP ending 
         y = msg.split(splitter)
         TMP_DICT = {}
         TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
@@ -520,7 +451,6 @@ if __name__ == '__main__':
         TMP_DICT['form_data'] = []
         i : int = 0
         for header in y:
-            print(i)
             spl : str = header.split(b':',1)
             if len(spl) != 2:
                 if b'=' in spl[0]: #application/x-www-form-urlencoded
@@ -569,12 +499,46 @@ if __name__ == '__main__':
             TMP_DICT[key] = value
             i+=1
         return TMP_DICT
-    # print(msg.decode())
-    print(hb)
-    print(parse(hedrs,b'\n'))
 
-    # print(msg[:979].decode('utf-8'))
-    # x = Server('','')
-    # print(x.ParseHeaders(msg))
 
+
+    def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
+        client,address = client 
+        request = client.recv(1024) #Wait for a request
+        
+        #Client Exit        
+        if len(request) == 0:
+            return client.close()
+        
+        r = request
+        # print(request.decode('utf-8'),end="\n\n\n")
+        headers = self.quickParse(request)
+        if 'Content-Length' in headers:
+            crem : int = int(headers['Content-Length']) - 1024
+            if (crem  > 0):
+                if not 'files' in headers:
+                    headers['files'] = b''
+                for _ in range(ceil(crem / 1024)):
+                    bindata = client.recv(1024)
+                    headers['files'] += bindata
+                    r += bindata
+                headers['files'] = FileObject('file.pnm',headers['files'])
+
+        parsed = self.parse(r)
+        print(parsed,'\r\n')
+        #WebSocket Connection
+        if 'Upgrade' in headers:
+            if headers['Upgrade'].lower()=='websocket':
+                print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
+                return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
+        
+    
+        print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
+        return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
+
+
+
+
+if __name__ == '__main__':
+    pass
 
