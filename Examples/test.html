@@ -15,12 +15,15 @@
 </div> -->
 <div>
     <form action="/post" enctype="multipart/form-data" method="POST">
-        <input name="pederastis" type="file" draggable="true" dropzone="true" multiple>
+        <input name="Username" type="text" draggable="true" dropzone="true" >
+        <input name="Password" type="text" draggable="true" dropzone="true" >
+        <input name="Confirm P" type="text" draggable="true" dropzone="true" >
+        <input name="Email Ad" type="text" draggable="true" dropzone="true" >
+        <textarea name="Biography" placeholder="<p>"></textarea>
+
         <input type="submit"> 
     </form>
 </div>
-
-
 <?python
     for num in range(20):
         html(
