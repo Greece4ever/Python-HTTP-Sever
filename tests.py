@@ -4,6 +4,7 @@ import status
 import threading
 import datetime
 from cache import Cache
+import pprint
 
 cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 
@@ -67,7 +68,11 @@ class PostView(View):
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
 
     def POST(self,request):
-        # print(request)
+        pprint.pprint(request)
+        for item in request['files']:
+            print(item)
+            with open(item['filename'],'wb+') as f:
+                f.write(item['data'].data)
         return status.Http200().__call__("""<title>Hello</title>""")
 
 class RedirectView(View):

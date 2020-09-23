@@ -36,8 +36,8 @@ class FileObject:
     def __change__(self,name):
         self.name = name
 
-    def save(self,path : str,buffersize : int) -> None:
-        with open(join(path,self.name),'wb+') as file:
+    def save(self,path : str,name : str,buffersize : int) -> None:
+        with open(join(path,name),'wb+') as file:
             for chunk in iter(self.data):
                 file.writelines(chunk)
 
@@ -510,6 +510,45 @@ class Server(RoutedWebsocketServer):
             i+=1
         return TMP_DICT
 
+    def parseHTMLDATA(self,dat):
+        HTML_DATA = dat[:3];HTML_DATA.pop(0)
+        attrs : dict = {}
+        for item in HTML_DATA:
+            item = item.split(b';')
+            for oi in item:
+                if b'=' in oi:
+                    s1 = oi.split(b'=')
+                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                elif b':' in oi:
+                    s1 = oi.split(b':')
+                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+
+
+    def parseFile(self,boundrary,bindata,BIN_DATA):
+        if boundrary in bindata:
+            search_data = bindata[bindata.index(boundrary):]
+            dat = search_data.split(b"\r\n",4)
+            if len(dat) >= 2:
+                HTML_DATA = dat[:3];HTML_DATA.pop(0)
+                attrs : dict = {}
+                for item in HTML_DATA:
+                    item = item.split(b';')
+                    for oi in item:
+                        if b'=' in oi:
+                            s1 = oi.split(b'=')
+                            attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                        elif b':' in oi:
+                            s1 = oi.split(b':')
+                            attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                BIN_DATA.append(attrs) #Append the Atributes (filename,content-type ... etc)
+
+                #Append to the previous everything before the request
+                hd = b"\r\n".join(dat[:3])
+                indx = bindata.index(hd)
+                before = bindata[:indx] #previous
+                after = bindata[indx:] #latter
+                return (before, after)
+
 
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
@@ -520,7 +559,7 @@ class Server(RoutedWebsocketServer):
             return client.close()
         
         headers : dict = self.quickParse(request)
-        # pprint.pprint(headers)/
+        # pprint.pprint(headers)
 
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
@@ -535,45 +574,23 @@ class Server(RoutedWebsocketServer):
                 boundrary = boundrary.encode()
                 if not 'files' in headers:
                     headers['files'] = [b'']
-                
+
+                f_p = request[request.index(boundrary + b'\r\nContent-Disposition'):]
+                print(f_p.split(b"\r\n",3)[:3])
+
                 #Await for new Responses
                 l : int = 0
                 loop_times = iter(range(ceil(crem / 1024)))
                 BIN_DATA : list = []
                 for _ in loop_times:
                     bindata = client.recv(1024) #Await for file transfer
-
-                    #Check if new file is sent
                     if boundrary in bindata:
-                        search_data = bindata[bindata.index(boundrary):]
-                        dat = search_data.split(b"\r\n",4)
-                        if len(dat) >= 2:
-                            HTML_DATA = dat[:3];HTML_DATA.pop(0)
-                            attrs : dict = {}
-                            for item in HTML_DATA:
-                                item = item.split(b';')
-                                for oi in item:
-                                    if b'=' in oi:
-                                        s1 = oi.split(b'=')
-                                        attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-                                    elif b':' in oi:
-                                        s1 = oi.split(b':')
-                                        attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-                            BIN_DATA.append(attrs) #Append the Atributes (filename,content-type ... etc)
-
-                            #Append to the previous everything before the request
-                            hd = b"\r\n".join(dat[:3])
-                            indx = bindata.index(hd)
-                            before = bindata[:indx] #previous
-                            after = bindata[indx:] #latter
-                            headers['files'][l] += before 
-                            l+=1
-                            headers['files'].insert(l,after) 
-                            continue
-
-                        # s = bindata.split(boundrary)
+                        res = self.parseFile(boundrary,bindata,BIN_DATA)
+                        headers['files'][l] += res[0] #before
+                        l+=1
+                        headers['files'].insert(l,res[1]) #after 
+                        continue
                     headers['files'][l] += bindata
-
 
                 j : int
                 for j in range(len(headers['files'])):
@@ -584,12 +601,10 @@ class Server(RoutedWebsocketServer):
                 for j in range(len(BIN_DATA)):
                     BIN_DATA[j]['data'] = headers['files'][j]
 
-
-                pprint.pprint(BIN_DATA)
+                headers['files'] = BIN_DATA
 
             else:
                 hdrs = self.parse(request)
-                # print(hdrs)
 
         #WebSocket Connection
         if 'Upgrade' in headers:
