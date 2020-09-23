@@ -522,32 +522,22 @@ class Server(RoutedWebsocketServer):
                 elif b':' in oi:
                     s1 = oi.split(b':')
                     attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+        return attrs
 
 
     def parseFile(self,boundrary,bindata,BIN_DATA):
-        if boundrary in bindata:
-            search_data = bindata[bindata.index(boundrary):]
-            dat = search_data.split(b"\r\n",4)
-            if len(dat) >= 2:
-                HTML_DATA = dat[:3];HTML_DATA.pop(0)
-                attrs : dict = {}
-                for item in HTML_DATA:
-                    item = item.split(b';')
-                    for oi in item:
-                        if b'=' in oi:
-                            s1 = oi.split(b'=')
-                            attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-                        elif b':' in oi:
-                            s1 = oi.split(b':')
-                            attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-                BIN_DATA.append(attrs) #Append the Atributes (filename,content-type ... etc)
+        search_data = bindata[bindata.index(boundrary):]
+        dat = search_data.split(b"\r\n",4)
+        if len(dat) >= 2:
+            attrs = self.parseHTMLDATA(dat)
+            BIN_DATA.append(attrs) 
 
-                #Append to the previous everything before the request
-                hd = b"\r\n".join(dat[:3])
-                indx = bindata.index(hd)
-                before = bindata[:indx] #previous
-                after = bindata[indx:] #latter
-                return (before, after)
+            #Append to the previous everything before the request
+            hd = b"\r\n".join(dat[:3])
+            indx = bindata.index(hd)
+            before = bindata[:indx] #previous
+            after = bindata[indx:] #latter
+            return (before, after)
 
 
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
