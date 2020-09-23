@@ -180,12 +180,17 @@ class Http301(Exception):
 
 class Http302(Exception):
     @classmethod
-    def __call__(self,template):
+    def __call__(self,template,location):
         return (b"HTTP/1.1 302 Found\n"
                 +b"Content-Type: text/html\n"
+                +b"Location : " + f'{location}'.encode()
                 +b"\n" 
                 +template.encode())    
 
+class Redirect(Exception):
+    @classmethod
+    def __call__(self,location):
+        return Http302().__call__('',location)
 
 class Http303(Exception):
     @classmethod

@@ -365,7 +365,7 @@ class RoutedWebsocketServer(WebsocketServer):
         while True:
             try:
                 data = client.recv(CWM.MaxSize())
-            except Exception as f:
+            except:
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
@@ -524,49 +524,52 @@ class Server(RoutedWebsocketServer):
 
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
-            print(crem,end="\n\r\n")
             if (crem  > 0):
-                boundrary = headers['Content-Type'].split(b';') # Where new data is sent
-                for q in boundrary:
-                    if b'boundary' in q:
-                        boundrary = q.split(b'=')[-1];break
+                boundrary = headers['Content-Type'].split(';') # Where new data is sent
 
+                #Find the Form-data spliiter
+                for q in boundrary:
+                    if 'boundary' in q:
+                        boundrary = q.split('=')[-1];break
+
+                boundrary = boundrary.encode()
                 if not 'files' in headers:
                     headers['files'] = [b'']
+                
+                #Await for new Responses
                 l : int = 0
                 loop_times = iter(range(ceil(crem / 1024)))
+                BIN_DATA : list = []
                 for _ in loop_times:
                     bindata = client.recv(1024) #Await for file transfer
 
                     #Check if new file is sent
                     if boundrary in bindata:
                         search_data = bindata[bindata.index(boundrary):]
-                        dat = search_data.split(b"\r\n",2)
+                        dat = search_data.split(b"\r\n",4)
                         if len(dat) >= 2:
-                            trgt : list = dat[:2]
-                            print(dat,end="\n\n\n <-----------> \n\n")
-                            be_parsed = b" ".join(dat[:3]).replace(boundrary,b'').strip()
-                            HTML_DATA : list = be_parsed.split(b';')
-                            HTML_DATA[0].split(b' ')
+                            HTML_DATA = dat[:3];HTML_DATA.pop(0)
                             attrs : dict = {}
                             for item in HTML_DATA:
-                                print(item)
-                                if b'=' in item:
-                                    s1 = item.split(    b'=')
-                                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-                                elif b':' in item:
-                                    s1 = item.split(b':')
-                                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                                item = item.split(b';')
+                                for oi in item:
+                                    if b'=' in oi:
+                                        s1 = oi.split(b'=')
+                                        attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                                    elif b':' in oi:
+                                        s1 = oi.split(b':')
+                                        attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                            BIN_DATA.append(attrs) #Append the Atributes (filename,content-type ... etc)
 
+                            #Append to the previous everything before the request
                             hd = b"\r\n".join(dat[:3])
                             indx = bindata.index(hd)
-                            # print(attrs)
-                            # print(hd)
-                            # print(bindata[indx+len(hd):])
-                            # print(bindata)
-                            headers['files'][l] += bindata[:indx] #before
+                            before = bindata[:indx] #previous
+                            after = bindata[indx:] #latter
+                            headers['files'][l] += before 
                             l+=1
-                            headers['files'].insert(l,bindata[indx+len(hd):]) 
+                            headers['files'].insert(l,after) 
+                            continue
 
                         # s = bindata.split(boundrary)
                     headers['files'][l] += bindata
@@ -576,9 +579,14 @@ class Server(RoutedWebsocketServer):
                 for j in range(len(headers['files'])):
                     headers['files'][j] = FileObject('',headers['files'][j])
                     j+=1
-                
-                # print(headers)
-                # headers['files'] = FileObject('file.pnm',headers['files'])
+
+                j : int = 0
+                for j in range(len(BIN_DATA)):
+                    BIN_DATA[j]['data'] = headers['files'][j]
+
+
+                pprint.pprint(BIN_DATA)
+
             else:
                 hdrs = self.parse(request)
                 # print(hdrs)

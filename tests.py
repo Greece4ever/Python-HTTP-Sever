@@ -70,6 +70,10 @@ class PostView(View):
         # print(request)
         return status.Http200().__call__("""<title>Hello</title>""")
 
+class RedirectView(View):
+    def GET(self,request):
+        return status.Redirect().__call__('/poutsa')
+
 URLS : dict = {
     r"^(\/)?" : Home(),
     '/another' : ShitJson(),
@@ -78,7 +82,8 @@ URLS : dict = {
     r'(\/)images\/(\d+)(\/)?' : Imgres(),
     r'\/profiles\/(\w+)(\/)?' : RView(),
     r'(\/)tests(\/)(\d+)(\/)?' : SampleView(),
-    r'/post' : PostView()
+    r'/post' : PostView(),
+    r'/redirect' : RedirectView()
 }
 
 class CustomRoute(SocketView):
