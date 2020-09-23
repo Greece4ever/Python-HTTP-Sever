@@ -72,6 +72,7 @@ class PostView(View):
         for item in request['files']:
             print(item)
             with open(item['filename'],'wb+') as f:
+                # print(item['data'].data)
                 f.write(item['data'].data)
         return status.Http200().__call__("""<title>Hello</title>""")
 

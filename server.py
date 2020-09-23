@@ -549,7 +549,7 @@ class Server(RoutedWebsocketServer):
             return client.close()
         
         headers : dict = self.quickParse(request)
-        # pprint.pprint(headers)
+        # pprint.pprint(request.decode(errors='ignore'))
 
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
@@ -562,25 +562,31 @@ class Server(RoutedWebsocketServer):
                         boundrary = q.split('=')[-1];break
 
                 boundrary = boundrary.encode()
-                if not 'files' in headers:
-                    headers['files'] = [b'']
-
                 f_p = request[request.index(boundrary + b'\r\nContent-Disposition'):]
-                print(f_p.split(b"\r\n",3)[:3])
+                target = f_p.split(b"\r\n",4)
+
+                if not 'files' in headers:
+                    headers['files'] = [*target[4:]]
 
                 #Await for new Responses
                 l : int = 0
                 loop_times = iter(range(ceil(crem / 1024)))
-                BIN_DATA : list = []
+                BIN_DATA : list = [self.parseHTMLDATA(f_p.split(b"\r\n",3))]
                 for _ in loop_times:
+                    print('WAITING : {}'.format(l))
+                    # client.settimeout(5)
                     bindata = client.recv(1024) #Await for file transfer
                     if boundrary in bindata:
+                        print("BOUNDARY")
                         res = self.parseFile(boundrary,bindata,BIN_DATA)
+                        # print(res)
                         headers['files'][l] += res[0] #before
                         l+=1
                         headers['files'].insert(l,res[1]) #after 
                         continue
                     headers['files'][l] += bindata
+
+                print(headers['files'])
 
                 j : int
                 for j in range(len(headers['files'])):
