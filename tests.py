@@ -67,7 +67,7 @@ class PostView(View):
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
 
     def POST(self,request):
-        print(request)
+        # print(request)
         return status.Http200().__call__("""<title>Hello</title>""")
 
 URLS : dict = {

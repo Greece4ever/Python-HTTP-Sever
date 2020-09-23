@@ -18,6 +18,12 @@ def lazy_read(file): #Function to lazy read
             break
         yield data
 
+def decodeURI(expression : Union[str,bytes]) -> str:
+    if type(expression) == bytes:
+        expression = expression.decode()
+    expression = expression.replace('"','').replace("'",'')
+    return unquote(expression.replace("+",' ')).strip()
+
 class FileObject:
     def __init__(self,name,data):
         self.name = name
@@ -25,6 +31,9 @@ class FileObject:
 
     def __str__(self):
         return self.name
+    
+    def __change__(self,name):
+        self.name = name
 
     def save(self,path : str,buffersize : int) -> None:
         with open(join(path,self.name),'wb+') as file:
@@ -442,7 +451,6 @@ class Server(RoutedWebsocketServer):
             pass
         return TMP_DICT
 
-
     def parse(self,msg,splitter : bytes = b'\r\n'): #The default HTTP ending 
         y = msg.split(splitter)
         TMP_DICT = {}
@@ -457,7 +465,7 @@ class Server(RoutedWebsocketServer):
                     form_data : list = spl[0].split(b'&')
                     for elm in form_data:
                         prs = elm.split(b'=')
-                        TMP_DICT['data'][unquote(prs[0].decode().replace("+"," "))] = unquote(prs[1].decode().replace("+"," "))
+                        TMP_DICT['data'][decodeURI(prs[0].decode())] = decodeURI(prs[1].decode())
                 i+=1
                 continue
             key = spl[0].strip().decode()
@@ -473,7 +481,7 @@ class Server(RoutedWebsocketServer):
                         item = item.split(b"=")
                         name = item[0].decode().strip()
                         attr_val = item[1].decode().strip().replace('"','')
-                        __tmp__.append({unquote(name.replace("+"," ")) : unquote(attr_val.replace("+"," "))})
+                        __tmp__.append({decodeURI(name) : decodeURI(attr_val)})
                     else:
                         __tmp__.append(item.decode())
                 value = __tmp__
@@ -501,7 +509,6 @@ class Server(RoutedWebsocketServer):
         return TMP_DICT
 
 
-
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
         request = client.recv(1024) #Wait for a request
@@ -510,22 +517,69 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
         
-        r = request
-        # print(request.decode('utf-8'),end="\n\n\n")
         headers = self.quickParse(request)
+        print(headers)
+
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
+            print(crem,end="\n\r\n")
             if (crem  > 0):
-                if not 'files' in headers:
-                    headers['files'] = b''
-                for _ in range(ceil(crem / 1024)):
-                    bindata = client.recv(1024)
-                    headers['files'] += bindata
-                    r += bindata
-                headers['files'] = FileObject('file.pnm',headers['files'])
+                boundrary = headers['Content-Type'].split(b';') # Where new data is sent
+                for q in boundrary:
+                    if b'boundary' in q:
+                        boundrary = q.split(b'=')[-1];break
 
-        parsed = self.parse(r)
-        print(parsed,'\r\n')
+                if not 'files' in headers:
+                    headers['files'] = [b'']
+                l : int = 0
+                loop_times = iter(range(ceil(crem / 1024)))
+                for _ in loop_times:
+                    bindata = client.recv(1024) #Await for file transfer
+
+                    #Check if new file is sent
+                    if boundrary in bindata:
+                        search_data = bindata[bindata.index(boundrary):]
+                        dat = search_data.split(b"\r\n",2)
+                        if len(dat) >= 2:
+                            print(dat,end="\n\n\n <-----------> \n\n")
+                            be_parsed = b" ".join(dat[:3]).replace(boundrary,b'').strip()
+                            HTML_DATA : list = be_parsed.split(b';')
+                            HTML_DATA[0].split(b' ')
+                            attrs : dict = {}
+                            for item in HTML_DATA:
+                                print(item)
+                                if b'=' in item:
+                                    s1 = item.split(b'=')
+                                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+                                elif b':' in item:
+                                    s1 = item.split(b':')
+                                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
+
+                            hd = b"\r\n".join(dat[:3])
+                            indx = bindata.index(hd)
+                            # print(attrs)
+                            # print(hd)
+                            # print(bindata[indx+len(hd):])
+                            # print(bindata)
+                            headers['files'][l] += bindata[:indx] #before
+                            l+=1
+                            headers['files'].insert(l,bindata[indx+len(hd):]) 
+
+                        # s = bindata.split(boundrary)
+                    headers['files'][l] += bindata
+
+
+                j : int
+                for j in range(len(headers['files'])):
+                    headers['files'][j] = FileObject('',headers['files'][j])
+                    j+=1
+                
+                # print(headers)
+                # headers['files'] = FileObject('file.pnm',headers['files'])
+            else:
+                hdrs = self.parse(request)
+                print(hdrs)
+
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
@@ -535,8 +589,6 @@ class Server(RoutedWebsocketServer):
     
         print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
-
-
 
 
 if __name__ == '__main__':
