@@ -118,7 +118,7 @@ class ChatRoute(CustomRoute):
 
 PATHS = {
     '/peos' : CustomRoute(),
-    '/chat' : ChatRoute(ChatRoute)
+    '/chat' : ChatRoute()
 }
 
 URLS['/SQL'] = CustomRoute()

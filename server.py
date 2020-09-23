@@ -10,6 +10,7 @@ from traceback import print_exception
 from os.path import getsize,join
 from urllib.request import unquote
 from math import ceil
+import pprint
 
 def lazy_read(file): #Function to lazy read
     while True:
@@ -364,12 +365,13 @@ class RoutedWebsocketServer(WebsocketServer):
         while True:
             try:
                 data = client.recv(CWM.MaxSize())
-            except:
+            except Exception as f:
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
             if len(data) == 0:
+                print("Data is 0")
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
@@ -446,7 +448,7 @@ class Server(RoutedWebsocketServer):
                 spl : str = header.split(b':',1)
                 key = spl[0].strip().decode()
                 value = spl[1].strip()
-                TMP_DICT[key] = value
+                TMP_DICT[key] = value.decode()
         except:
             pass
         return TMP_DICT
@@ -517,8 +519,8 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
         
-        headers = self.quickParse(request)
-        print(headers)
+        headers : dict = self.quickParse(request)
+        # pprint.pprint(headers)/
 
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
@@ -541,6 +543,7 @@ class Server(RoutedWebsocketServer):
                         search_data = bindata[bindata.index(boundrary):]
                         dat = search_data.split(b"\r\n",2)
                         if len(dat) >= 2:
+                            trgt : list = dat[:2]
                             print(dat,end="\n\n\n <-----------> \n\n")
                             be_parsed = b" ".join(dat[:3]).replace(boundrary,b'').strip()
                             HTML_DATA : list = be_parsed.split(b';')
@@ -549,7 +552,7 @@ class Server(RoutedWebsocketServer):
                             for item in HTML_DATA:
                                 print(item)
                                 if b'=' in item:
-                                    s1 = item.split(b'=')
+                                    s1 = item.split(    b'=')
                                     attrs[decodeURI(s1[0])] = decodeURI(s1[1])
                                 elif b':' in item:
                                     s1 = item.split(b':')
@@ -578,7 +581,7 @@ class Server(RoutedWebsocketServer):
                 # headers['files'] = FileObject('file.pnm',headers['files'])
             else:
                 hdrs = self.parse(request)
-                print(hdrs)
+                # print(hdrs)
 
         #WebSocket Connection
         if 'Upgrade' in headers:
