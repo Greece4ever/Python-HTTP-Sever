@@ -24,8 +24,8 @@ def ParseHeaders(headers : bytes) -> dict:
 
 
 def ParseBody(body : bytes,code : int,**kwargs):
-    FORM_DATA : dict = {}
     if code == 0:
+        FORM_DATA : dict = {}
         data = body.split(b'&')
         for bit in data:
             key,value = bit.split(b'=')
@@ -33,14 +33,24 @@ def ParseBody(body : bytes,code : int,**kwargs):
             value : str = decodeURI(value.decode())
             FORM_DATA[key] = value
     else:
+        FORM_DATA : list = []
         split = kwargs.get('boundary')
         f_data = body.split(b'--' + split)
         for item in f_data:
-            print(item.split(b'\r\n\r\n',1))
-            # print(item.decode(errors='ignore'))
-
-        # print(body,end='\n\n')
-        # print(body.decode(errors='ignore'))
+            if len(item) < 2:
+                continue
+            attrs = {}
+            itm_prs : list = item.split(b'\r\n\r\n',1)
+            bl = itm_prs[0].split(b';')
+            for i in bl:
+                if b':' in i:
+                    spl : list = i.split(b':')
+                elif b'=' in i:
+                    spl : list = i.split(b'=')
+                attrs[spl[0].strip()] = spl[1].strip()
+                
+            attrs['data'] = itm_prs[-1]
+            FORM_DATA.append(attrs)
 
     return FORM_DATA
 
@@ -51,26 +61,25 @@ def ParseHTTP(data : bytes,await_data : callable):
     headers,body = data.split(b'\r\n\r\n',1) # Headers and body
     headers = ParseHeaders(headers)
 
-    if __name__ != "__main__":
-        if 'Content-Length' in headers:
-            lenght : int = headers['Content-Length']
-            if lenght > 1024:
-                for _ in range(ceil(crem / 1024)):
-                    response = await_data()
-                    body += response
+    if 'Content-Length' in headers:
+        lenght : int = int(headers['Content-Length'])
+        if lenght > 1024:
+            for _ in range(ceil(lenght / 1024)):
+                response = await_data()
+                body += response
 
     if 'Content-Type' in headers:
         c_type = headers['Content-Type']
         if type(c_type) == list:
             for value in c_type:
                 if 'boundary' in value:
-                    boundary =  value.split('=')[-1]
-                    body = ParseBody(body,1,boundary=boundary.encode())
+                    boundary : list =  value.split('=')[-1]
+                    response : tuple =  headers,ParseBody(body,1,boundary=boundary.encode())
+                    return response
         elif 'application/x-www-form-urlencoded':
-            body = ParseBody(body,0)
-            print(body)
+            return headers,ParseBody(body,0)
 
-    return headers
+    return headers,()
 
 
 if __name__ == "__main__":

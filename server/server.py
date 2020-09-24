@@ -1,5 +1,5 @@
 from ..client_side import status
-from ..parsing.http import ParseHeaders
+from ..parsing.http import ParseHeaders,ParseHTTP
 from ..parsing import websocket
 # < - Server Hadnling
 import socket
@@ -69,7 +69,7 @@ class HttpServer:
 
     def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
         isHttp = kwargs.get('http')
-        print(f"Starting local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
+        print(f"Initiliazing local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
         self.connection : socket.socket = socket.socket()
         self.connection.bind(self.adress)
@@ -81,13 +81,13 @@ class HttpServer:
 
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict) -> None:
         #Loop thorugh each URL searching for the TARGET
-        target = headers["method"].split(" ")[1]
+        target = headers[0]["method"].split(" ")[1]
         for url in URLS:
             match = re.fullmatch(url,target) #full regex match
             if match: #linear search is the only way to go with regex
                 try:
-                    headers['IP'] = self.get_client_ip(client)
-                    msg = URLS.get(url).__call__(headers)
+                    headers[0]['IP'] = self.get_client_ip(client)
+                    msg = URLS.get(url).__call__(headers[0])
                     if isinstance(msg,tuple): #Binary? file
                         with open(msg[1],'rb+') as file:
                             client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
@@ -127,13 +127,14 @@ class HttpServer:
         try:
             request = client.recv(1024) #Await for messages
         except:
-            print(f'(Server) | {str(datetime.now())} : Timed out {address}')        
+            return client.close()     
 
         if len(request) == 0:
             return client.close()
 
-        headers = ParseHeaders(request) #TODO BUG NOTE 
-        print(f'(HTTP) : {headers["method"]} | {str(datetime.now())} : {address}')
+        headers = ParseHTTP(request,lambda : client.recv(1024) )  
+
+        print(f'(HTTP) : {headers[0]["method"]} | {str(datetime.now())} : {address}')
         return self.handleHTTP(client,headers, URLS)
 
     def get_client_ip(self,client):
@@ -150,6 +151,7 @@ class HttpServer:
             return False
 
     def start(self):
+        print(f'({str(datetime.now())}) Server has gone live.')
         return self.AwaitRequest()
 
 class WebsocketServer(HttpServer):

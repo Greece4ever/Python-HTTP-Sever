@@ -3,6 +3,7 @@ from ..server.routes import View,template,SocketView
 from ..client_side import status
 # from cache import Cache
 import pprint
+import os
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 
@@ -21,11 +22,11 @@ class ShitJson(View):
 
 class Chat(View):
     def GET(self,request):
-        return status.Http200().__call__(template("Tests/index.html"))
+        return status.Http200().__call__(template(os.path.join(os.getcwd(),"index.html")))
 
 class Chat2(View):
     def GET(self,request):
-        return status.Http200().__call__(template("Tests/test.html",usePythonScript=True))
+        return status.Http200().__call__(template(os.path.join(os.getcwd(),"test.html"),usePythonScript=True))
 
 class RView(View):
     def GET(self,request):
@@ -45,7 +46,7 @@ class RView(View):
         }
         # page_num = request['method'].split('/')[-1]
         # return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
-        return status.Http200().__call__(template("Tests/test.html",usePythonScript=True,context=context))
+        return status.Http200().__call__(template("test.html",usePythonScript=True,context=context))
 
 import os
 
@@ -60,11 +61,11 @@ class SampleView(View):
             'random' : [
                 [int(random() * 255) for _ in range(3)] for __ in range(10) ]
         }
-        return status.Http200().__call__(template("Tests/test2.html",usePythonScript=True,context=context))
+        return status.Http200().__call__(template(os.path.join(os.getcwd(),"test2.html"),usePythonScript=True,context=context))
 
 class PostView(View):
     def GET(self, request):
-        return status.Http200().__call__(template("Tests/test.html",usePythonScript=True))
+        return status.Http200().__call__(template("C:\\Users\\progr\\OneDrive\\Υπολογιστής\\Server\\tests\\test.html",usePythonScript=True))
 
     def POST(self,request):
         return status.Http200().__call__("""<title>Hello</title>""")
@@ -127,5 +128,6 @@ PATHS = {
 
 URLS['/SQL'] = CustomRoute()
 
-server = Server(PATHS,URLS,port=80)
+server = HttpServer(URLS=URLS)
+# server = Server(PATHS,URLS,port=80)
 server.start()
