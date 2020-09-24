@@ -439,116 +439,18 @@ class Server(RoutedWebsocketServer):
     def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs) -> None:
         super(Server, self).__init__(socket_paths,host,port,global_max_size,http='',URLS=http_paths)
     
-    def quickParse(self,data):
-        y = data.split(b'\r\n')
-        TMP_DICT = {}
-        TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
-        try:
-            for header in y:
-                spl : str = header.split(b':',1)
-                key = spl[0].strip().decode()
-                value = spl[1].strip()
-                TMP_DICT[key] = value.decode()
-        except:
-            pass
-        return TMP_DICT
-
-    def parse(self,msg,splitter : bytes = b'\r\n'): #The default HTTP ending 
-        y = msg.split(splitter)
-        TMP_DICT = {}
-        TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
-        TMP_DICT['data'] = {}
-        TMP_DICT['form_data'] = []
-        i : int = 0
-        for header in y:
-            spl : str = header.split(b':',1)
-            if len(spl) != 2:
-                if b'=' in spl[0]: #application/x-www-form-urlencoded
-                    form_data : list = spl[0].split(b'&')
-                    for elm in form_data:
-                        prs = elm.split(b'=')
-                        TMP_DICT['data'][decodeURI(prs[0].decode())] = decodeURI(prs[1].decode())
-                i+=1
-                continue
-            key = spl[0].strip().decode()
-            value = spl[1].strip()
-            # Aditional Parameters to check for
-            if b';' in value and not 'accept' in key.lower() and key.strip().lower() != 'user-agent':
-                value = value.split(b';')
-                copy : list = value
-                __tmp__ : list = []
-                for item in value:
-                    if b'=' in item:
-                        item = item.split(b"=")
-                        name = item[0].decode().strip()
-                        attr_val = item[1].decode().strip().replace('"','')
-                        __tmp__.append({decodeURI(name) : decodeURI(attr_val)})
-                    else:
-                        __tmp__.append(item.decode())
-                value = __tmp__
-
-                # multipart/form-data 
-                if copy[0] == b'form-data':
-                    value_arr : list = []
-                    t_list : list = y[i+1:]
-                
-                    for div in t_list:
-                        div = div.strip()
-                        if div.startswith(b'--'):
-                            break
-                        value_arr.append(div)
-                    value_arr = [k for k in value_arr if len(k.strip()) >=1]
-                    value[-1]['value'] = value_arr
-                TMP_DICT['form_data'].append(value)
-                i+=1
-                continue
-            else:
-                value = value.decode()
-            TMP_DICT[key] = value
-            i+=1
-        return TMP_DICT
-
-    def parseHTMLDATA(self,dat):
-        HTML_DATA = dat[:3];HTML_DATA.pop(0)
-        attrs : dict = {}
-        for item in HTML_DATA:
-            item = item.split(b';')
-            for oi in item:
-                if b'=' in oi:
-                    s1 = oi.split(b'=')
-                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-                elif b':' in oi:
-                    s1 = oi.split(b':')
-                    attrs[decodeURI(s1[0])] = decodeURI(s1[1])
-        return attrs
-
-
-    def parseFile(self,boundrary,bindata,BIN_DATA):
-        search_data = bindata[bindata.index(boundrary):]
-        dat = search_data.split(b"\r\n",4)
-        if len(dat) >= 2:
-            attrs = self.parseHTMLDATA(dat)
-            BIN_DATA.append(attrs) 
-
-            #Append to the previous everything before the request
-            hd = b"\r\n".join(dat[:3])
-            indx = bindata.index(hd)
-            before = bindata[:indx] #previous
-            after = bindata[indx:] #latter
-            return (before, after)
-
-
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
-        request = client.recv(1024) #Wait for a request
-        
-        #Client Exit        
+        client.settimeout(5) 
+        try:
+            request = client.recv(1024) 
+        except:
+            print(f'(Server) | {str(datetime.now())} : Timed out {address}')
+            return -1
+
         if len(request) == 0:
             return client.close()
         
-        headers : dict = self.parse(request)
-        print(request,end="\n\n")
-
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024
             if (crem  > 0):
