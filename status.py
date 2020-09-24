@@ -84,7 +84,6 @@ class HttpBinary(Exception):
                 + ctype
                 +"Content-Length : {}\r\n".format(size).encode()
                 +"Content-Disposition: inline; filename=\"{}\"\r\n".format(filename).encode()
-                
                 +b"\r\n"
         ),path)
 
