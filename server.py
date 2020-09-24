@@ -472,7 +472,6 @@ class Server(RoutedWebsocketServer):
                 continue
             key = spl[0].strip().decode()
             value = spl[1].strip()
-
             # Aditional Parameters to check for
             if b';' in value and not 'accept' in key.lower() and key.strip().lower() != 'user-agent':
                 value = value.split(b';')
@@ -548,7 +547,9 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
         
-        headers : dict = self.quickParse(request)
+        headers : dict = self.parse(request)
+        print(request)
+        # headers : dict = self.quickParse(request)
         # pprint.pprint(request.decode(errors='ignore'))
 
         if 'Content-Length' in headers:
@@ -561,46 +562,53 @@ class Server(RoutedWebsocketServer):
                     if 'boundary' in q:
                         boundrary = q.split('=')[-1];break
 
-                boundrary = boundrary.encode()
-                f_p = request[request.index(boundrary + b'\r\nContent-Disposition'):]
-                target = f_p.split(b"\r\n",4)
+                if type(boundrary) != list:
+                    boundrary = boundrary.encode()
+                    f_p = request[request.index(boundrary + b'\r\nContent-Disposition'):]
+                    target = f_p.split(b"\r\n",4)
 
-                if not 'files' in headers:
-                    headers['files'] = [*target[4:]]
+                    if not 'files' in headers:
+                        headers['files'] = [*target[4:]]
 
-                #Await for new Responses
-                l : int = 0
-                loop_times = iter(range(ceil(crem / 1024)))
-                BIN_DATA : list = [self.parseHTMLDATA(f_p.split(b"\r\n",3))]
-                for _ in loop_times:
-                    print('WAITING : {}'.format(l))
-                    # client.settimeout(5)
-                    bindata = client.recv(1024) #Await for file transfer
-                    if boundrary in bindata:
-                        print("BOUNDARY")
-                        res = self.parseFile(boundrary,bindata,BIN_DATA)
-                        # print(res)
-                        headers['files'][l] += res[0] #before
-                        l+=1
-                        headers['files'].insert(l,res[1]) #after 
-                        continue
-                    headers['files'][l] += bindata
+                    #Await for new Responses
+                    l : int = 0
+                    loop_times = iter(range(ceil(crem / 1024)))
+                    BIN_DATA : list = [self.parseHTMLDATA(f_p.split(b"\r\n",3))]
+                    for _ in loop_times:
+                        print('WAITING : {}'.format(l))
+                        # client.settimeout(5)
+                        bindata = client.recv(1024) #Await for file transfer
+                        if boundrary in bindata:
+                            print("BOUNDARY")
+                            res = self.parseFile(boundrary,bindata,BIN_DATA)
+                            # print(res)
+                            headers['files'][l] += res[0] #before
+                            l+=1
+                            headers['files'].insert(l,res[1]) #after 
+                            continue
+                        headers['files'][l] += bindata
 
-                print(headers['files'])
+                    j : int
+                    for j in range(len(headers['files'])):
+                        headers['files'][j] = FileObject('',headers['files'][j])
+                        j+=1
 
-                j : int
-                for j in range(len(headers['files'])):
-                    headers['files'][j] = FileObject('',headers['files'][j])
-                    j+=1
+                    j : int = 0
+                    for j in range(len(BIN_DATA)):
+                        BIN_DATA[j]['data'] = headers['files'][j]
 
-                j : int = 0
-                for j in range(len(BIN_DATA)):
-                    BIN_DATA[j]['data'] = headers['files'][j]
-
-                headers['files'] = BIN_DATA
-
-            else:
-                hdrs = self.parse(request)
+                    headers['files'] = BIN_DATA 
+                else:
+                    DATA = ''
+                    loop_times = iter(range(ceil(crem / 1024)))
+                    for _ in loop_times:
+                        msg = client.recv(1024)
+                        request += msg
+                    parsed : str = decodeURI(request.decode(errors='ignore'))
+                    
+                    # print(parsed)
+                    # headers = self.parse(bytes(parsed,encoding='utf-8'))
+                    # print(headers,"\tThis is parsed")
 
         #WebSocket Connection
         if 'Upgrade' in headers:

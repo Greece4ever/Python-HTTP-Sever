@@ -19,6 +19,8 @@
         <input type="submit"> 
     </form>
 </div>
+<video width="500px" src="/images/1"></video>
+
 <?python
     for num in range(20):
         html(
@@ -28,6 +30,21 @@
             </div>
         )endhtml
 ?>
+
+<form action="" enctype="application/x-www-form-urlencoded" method="POST">
+    <input name='one' type="text">
+    <textarea name="two"></textarea>
+    <input type="submit">
+</form>
+
+<form action="" enctype="multipart/form-data" method="POST">
+    <input name='ena' type="text">
+    <textarea name="dio"></textarea>
+    <input type="submit">
+</form>
+
+
+
 </body>
 <script>
     document.body.addEventListener('drop',(e) => {

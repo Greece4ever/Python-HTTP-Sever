@@ -52,7 +52,7 @@ class RView(View):
 
 class Imgres(View):
     def GET(self,request):
-        return status.HttpBinary().__call__("megalos.PNG",200)
+        return status.HttpBinary().__call__("ATETOKOUMPOS.m4v",200)
 
 class SampleView(View):
     def GET(self,request):
@@ -68,17 +68,20 @@ class PostView(View):
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True))
 
     def POST(self,request):
-        pprint.pprint(request)
-        for item in request['files']:
-            print(item)
-            with open(item['filename'],'wb+') as f:
-                # print(item['data'].data)
-                f.write(item['data'].data)
+        # print(request)
+        # pprint.pprint(request)
+        # for item in request['files']:
+        #     print(item)
+        #     with open(item['filename'],'wb+') as f:
+        #         # print(item['data'].data)
+        #         f.write(item['data'].data)
         return status.Http200().__call__("""<title>Hello</title>""")
 
 class RedirectView(View):
     def GET(self,request):
         return status.Redirect().__call__('/poutsa')
+
+
 
 URLS : dict = {
     r"^(\/)?" : Home(),
