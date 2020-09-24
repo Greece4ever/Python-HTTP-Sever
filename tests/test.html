@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Document</title>
+</head>
+<body>
+<!-- <div>
+    <form action="/post" method="POST">
+        <input name="Ονομα Χρηστη" type="text">
+        <input name="Κωδικος Χρηστη" type="password">
+        <input type="submit">
+    </form>
+</div> -->
+<div>
+    <form action="/post" enctype="multipart/form-data" method="POST">
+        <input name='blendfile' type="file" multiple>
+        <input type="submit"> 
+    </form>
+</div>
+<video width="500px" src="/images/1"></video>
+
+<?python
+    for num in range(20):
+        html(
+            <div>
+                <label>This is the {num}{"th" if bool(num > 3 or num ==0) else "st" if num == 1 else "nd" if num ==2 else "rd"} Number
+                <b>{ num } </b>
+            </div>
+        )endhtml
+?>
+
+<form action="" enctype="application/x-www-form-urlencoded" method="POST">
+    <input name='one' type="text">
+    <textarea name="two"></textarea>
+    <input type="submit">
+</form>
+
+<form action="" enctype="multipart/form-data" method="POST">
+    <input name='ena' type="text">
+    <textarea name="dio"></textarea>
+    <input type="submit">
+</form>
+
+
+
+</body>
+<script>
+    document.body.addEventListener('drop',(e) => {
+        e.preventDefault()
+    })
+</script>
+</html>

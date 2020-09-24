@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+    
+    <div id='msg_box' style="width: 500px;height: 500px;">
+    </div>
+    <textarea id='text' placeholder="Type Message"></textarea>
+    <button id='btn'>Send</button>
+</body>
+</html>
+<script>
+    const host = window.location.host
+    const PORT = 80;
+    // const socket = new WebSocket(`ws://${host}:${PORT}/ws/connection`)
+    const socket = new WebSocket(`ws://${host}:${PORT}/chat`)
+
+
+    socket.onerror = () => {
+        document.write("<b>Something went wrong</b>")
+    }
+
+    document.getElementById("btn").addEventListener('click',() => {
+        let msg = encodeURI(document.getElementById('text').value);
+        socket.send(msg);
+    })
+
+    document.body.addEventListener("keypress",(e) => {
+        if (e.keyCode==13){
+            document.getElementById("btn").click()
+        }
+    })
+
+    socket.onmessage = (response) => {
+        const box = document.getElementById("msg_box");
+        console.log(response.data)
+        box.innerHTML += `<p>${decodeURI(response.data)}</p>`
+    }
+
+</script>
