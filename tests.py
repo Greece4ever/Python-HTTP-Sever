@@ -49,10 +49,11 @@ class RView(View):
         # return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
         return status.Http200().__call__(template("Examples/test.html",usePythonScript=True,context=context))
 
+import os
 
 class Imgres(View):
     def GET(self,request):
-        return status.HttpBinary().__call__("ATETOKOUMPOS.m4v",200)
+        return status.HttpBinary().__call__(os.path.join(os.getcwd(),'git.pdf'),200,display_in_browser=True)
 
 class SampleView(View):
     def GET(self,request):

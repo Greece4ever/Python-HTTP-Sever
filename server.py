@@ -504,7 +504,6 @@ class Server(RoutedWebsocketServer):
                 continue
             else:
                 value = value.decode()
-
             TMP_DICT[key] = value
             i+=1
         return TMP_DICT
@@ -548,9 +547,7 @@ class Server(RoutedWebsocketServer):
             return client.close()
         
         headers : dict = self.parse(request)
-        print(request)
-        # headers : dict = self.quickParse(request)
-        # pprint.pprint(request.decode(errors='ignore'))
+        print(request,end="\n\n")
 
         if 'Content-Length' in headers:
             crem : int = int(headers['Content-Length']) - 1024

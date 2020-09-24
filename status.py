@@ -62,21 +62,32 @@ class HttpBinary(Exception):
     """For transfering binaries-files (or any file really) through HTTP 
     """
     @classmethod
-    def __call__(self,path,code) -> Tuple[callable,str]:
+    def __call__(self,path,code,display_in_browser : bool = False) -> Tuple[callable,str]:
         status = NUM_STATUS.get(str(code)) #Get the status code message
         assert (status is not None), "Invalid Status code \"{}\"".format(code) #raise exception if it does not exist
         filename = path.split("\\")[-1] #get the filename
         ctype = content_types.get('.' + filename.split(".")[-1].lower()) #get the mime for the file type (.FILETYPE)
-        ctype = '' if ctype is None else "Content-Type: {}\r\n".format(ctype) 
+        ctype = b'' if ctype is None else "Content-Type: {}\r\n".format(ctype).encode()
 
         #Return callabe
+        if not display_in_browser:
+            return (lambda size : (
+                    f"HTTP/1.1 {code} {status}\r\n".encode()
+                    + ctype
+                    +"Content-Length : {}\r\n".format(size).encode()
+                    # +"Content-Disposition: inline" if display_in_browser else "Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
+                    +"Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
+                    +b"\r\n"
+            ),path)
         return (lambda size : (
                 f"HTTP/1.1 {code} {status}\r\n".encode()
-                + ctype.encode()
+                + ctype
                 +"Content-Length : {}\r\n".format(size).encode()
-                +"Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
+                +"Content-Disposition: inline; filename=\"{}\"\r\n".format(filename).encode()
+                
                 +b"\r\n"
         ),path)
+
 
 class HttpJson(Exception):
     """
