@@ -153,8 +153,6 @@ class WebsocketServer(HttpServer):
         self.connection.listen(1)
         while True:
             client,adress = self.connection.accept()
-            if add_to_clients:
-                self.clients.append(client)
             threading.Thread(target=self.handleWebSocket,args=(client,adress)).start()
 
     def onMessage(self,**kwargs):
@@ -186,14 +184,15 @@ class WebsocketServer(HttpServer):
             indx = CLS.index(client)
             self.clients.pop(indx)
             client.close()
-            self.onExit(client)
-
+            return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
         else:
             CLS = list_of_clients
+            print(CLS,len(CLS))
             indx = CLS.index(client)
             CLS.pop(indx)
+            print(CLS,len(CLS))
             client.close()
-            self.onExit(client)
+            return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
 
     def AwaitMessage(self,client,address):
         """While a client is connected,
@@ -239,7 +238,7 @@ class WebsocketServer(HttpServer):
         data = client.recv(1024)
         data = data.split(b'\r\n\r\n',1)
         headers = ParseHeaders(data[0])
-        
+
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
                 print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
@@ -256,7 +255,6 @@ class WebsocketServer(HttpServer):
             print(f"(WS) : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
             return client.close() #Close if there was an Exception or return None
 
-        print(f"(WS) : {str(datetime.now())} Connection Established {address}")
         
         #Increment the number of clients and print 
         num_client : int = self.clients.__len__()+1
@@ -264,18 +262,14 @@ class WebsocketServer(HttpServer):
 
         #Add them to the clients-list (current route)
         self.clients.append(client)
+
         while True:
-            try:
-                data = client.recv(self.max_size)
-            except:
-                self.handleDisconnect(client)
-                self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit');break
+            data = client.recv(self.max_size)
 
             if len(data) == 0:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client)
-                self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit');break
-            
+                self.handleDisconnect(client);return ...
+
             print(f"(WS) : {str(datetime.now())} Received Message {address}")
             decoded = SocketBin(data)   
             self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
@@ -442,7 +436,5 @@ class Server(RoutedWebsocketServer):
         print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
 
-
 if __name__ == '__main__':
     pass
-

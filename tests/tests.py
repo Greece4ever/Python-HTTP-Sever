@@ -114,6 +114,7 @@ class SimpleWebSocketServer(WebsocketServer):
         key = kwargs.get("key")
         msg_to_send = "{} has connected!".format(self.get_client_ip(client))
         self.accept(client=client,key=key) #Accept the client request
+        self.send(client,msg_to_send)
         for client in self.clients:
             self.send(client,msg_to_send)
         return True
