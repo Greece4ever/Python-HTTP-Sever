@@ -1,22 +1,9 @@
 from urllib.request import unquote;from typing import Union
 from math import ceil;import io
 
-class FileObject:
-    def __init__(self,name,data):
-        self.name : str = name
-        self.data : bytes = io.BytesIO(data)
-
-    def __str__(self):
-        return self.name
-    
-    def __change__(self,name):
-        self.name = name
-
-
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
         expression = expression.decode()
-    # expression = expression.replace('"','').replace("'",'')
     return unquote(expression.replace("+",' ')).strip()
 
 
@@ -98,7 +85,8 @@ def ParseHTTP(data : bytes,await_data : callable):
 
     if 'Content-Length' in headers:
         lenght : int = int(headers['Content-Length'])
-        if lenght > 1024:
+
+        if len(body) < lenght:
             for _ in range(ceil(lenght / 1024)):
                 response = await_data()
                 body += response
@@ -118,8 +106,4 @@ def ParseHTTP(data : bytes,await_data : callable):
 
 
 if __name__ == "__main__":
-    import pprint
-    s1 = b'GET /images/1 HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 OPR/71.0.3770.175\r\nAccept-Encoding: identity;q=1, *;q=0\r\nAccept: */*\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: no-cors\r\nSec-Fetch-Dest: video\r\nReferer: http://localhost/post\r\nAccept-Language: en-US,en;q=0.9\r\nRange: bytes=0-\r\n\r\n'    
-    s2 = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 235\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundary0o8bArs2PkoBamqj\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 OPR/71.0.3770.175\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundary0o8bArs2PkoBamqj\r\nContent-Disposition: form-data; name="ena"\r\n\r\n321321\r\n------WebKitFormBoundary0o8bArs2PkoBamqj\r\nContent-Disposition: form-data; name="dio"\r\n\r\n321\r\n\r\n------WebKitFormBoundary0o8bArs2PkoBamqj--\r\n'
-    s3 = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 304\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundaryh3DxaqIJ7GjcSgPY\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 OPR/71.0.3770.175\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundaryh3DxaqIJ7GjcSgPY\r\nContent-Disposition: form-data; name="ena"\r\n\r\n<script>hello_world</script>\r\n------WebKitFormBoundaryh3DxaqIJ7GjcSgPY\r\nContent-Disposition: form-data; name="dio"\r\n\r\n>>> a = "hi"\r\n>>> bytes(a, encoding=\'utf8\')\r\nb\'hi\'\r\n\r\n------WebKitFormBoundary0o8bArs2PkoBamqj--'
-    pprint.pprint(ParseHTTP(s2,''))
+    pass

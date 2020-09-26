@@ -72,13 +72,6 @@ class PostView(View):
         return status.Http200().__call__(template(r"C:\Users\Spartakos\Desktop\server\tests\test.html",usePythonScript=True))
 
     def POST(self,request):
-        # if len(request[-1]) > 0:
-        #     DIR_NAME : str = POST_DATA
-        #     os.mkdir(DIR_NAME)
-        #     for item in request[0]:
-        #         with open(os.path.join(os.getcwd(),DIR_NAME,item[]),'wb+') as f:
-        #             f.write(item['data'])
-        pprint.pprint(request)
         return status.Http200().__call__("""<span style='color : red' >if</span><span>(<span>x</span>==<span style='color : blue'>1</span>)""")
 
 class RedirectView(View):
