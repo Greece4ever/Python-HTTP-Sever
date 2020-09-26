@@ -18,6 +18,15 @@ from os.path import getsize,join
 from urllib.request import unquote
 from math import ceil
 
+import pprint
+
+def ffs(x):
+    """Returns the index, counting from 0, of the
+    least significant set bit in `x`.
+    """
+    return (x&-x).bit_length()-1
+
+
 SocketBin : callable;SocketBinSend : callable
 SocketBin,SocketBinSend = websocket.ReceiveData,websocket.SendData
 
@@ -141,7 +150,7 @@ class WebsocketServer(HttpServer):
        param max_size : int = 4096 (The Maximun number of data that can be transmitted in one Message)
     """
 
-    def __init__(self,host : str = LOCALHOST,port : int = 8000,max_size : int = 4096,**kwargs):
+    def __init__(self,host : str = LOCALHOST,port : int = 8000,max_size : int = 1024,**kwargs):
         self.clients : list = [] #Store all the clients
         self.max_size = max_size
         isHttp = kwargs.get('http')
@@ -187,10 +196,8 @@ class WebsocketServer(HttpServer):
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
         else:
             CLS = list_of_clients
-            print(CLS,len(CLS))
             indx = CLS.index(client)
             CLS.pop(indx)
-            print(CLS,len(CLS))
             client.close()
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
 
@@ -233,8 +240,9 @@ class WebsocketServer(HttpServer):
         key = kwargs.get('key')
         return client.send(status.Http101().__call__(key))
 
+    # NOTE : TODO => FIGURE OUT HOW PAYLOAD LENGTH FUCKING WORKS
     def handleWebSocket(self,client,address,**kwargs):
-        # client.settimeout(5) # Wait 5 seconds for connection to be established
+        #TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
         data = client.recv(1024)
         data = data.split(b'\r\n\r\n',1)
         headers = ParseHeaders(data[0])
@@ -268,8 +276,58 @@ class WebsocketServer(HttpServer):
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 return self.handleDisconnect(client)
+            
+            fin = data[1] & 127
+            raw_bytes = "".join([
+                bin(byte).replace("0b",'') for byte in data
+            ])
+            fin2 = int("".join([item for item in raw_bytes[9:15+1]]),2)
+            print(fin,fin2,fin==fin2)
 
-            if data[0] == 136 or len(data) == 0:
+
+            if fin == 126:
+                b1 = str(bin( data[3])).replace('0b','') 
+                b2 = str(bin( data[4] )).replace('0b','') 
+                
+                b_1 = websocket.binraw(data[1])
+                b_2 = websocket.binraw(data[2])
+                print(int(b_1+b_2,2),"TRANSFOMED")
+                print(int.from_bytes([data[1],data[2]],'big'),"PYTHON3")
+
+
+                f1 = int(b1+b2,2)
+                fin = int.from_bytes([data[3],data[4]],'big')
+                print("TRUE IS {}".format(f1))
+                print(fin,'len is 126')
+                loop_times = round(fin / self.max_size)
+                print("I SHALL LOOP {} TIMES!".format(loop_times))
+                for _ in range(loop_times):
+                    data += client.recv(self.max_size)
+                    print("Received")
+                decoded = SocketBin(data)
+                self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
+                continue
+
+            elif fin == 127:
+                fin = int.from_bytes(data[3:8],'big')
+                print(data[3:8])
+                print([item for item in data[3:8]])
+                print(fin,'len is 127')
+                loop_times = ceil(fin / self.max_size)
+                print("I SHALL LOPP {}".format(loop_times))
+                for _ in range(loop_times):
+                    data += client.recv(self.max_size)
+                    print("Recevied BIG")
+                break
+            else:
+                print(fin,'len is 125 or lower')
+
+            # mask = data[2] & 127 #if 127 this is masking key
+            # d = bin(data[2]).replace('0b','');ms_bit = ffs(data[2]) #most significant bit of the 2nd byte
+            # d = list(d);d.pop(ms_bit) #rempve the most significant bit 
+            # pay_len = int("".join(d),2)
+
+            if data[0] == 136 or len(data) == 0: # 0th byte 136 is exit code
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client);return ...
 
@@ -301,22 +359,16 @@ class RoutedWebsocketServer(WebsocketServer):
         del self.clients;del self.max_size
 
     def AwaitSocket(self):
-        super(RoutedWebsocketServer,self).AwaitSocket(add_to_clients=False)
+        super(RoutedWebsocketServer,self).AwaitSocket()
 
     def handleWebSocket(self,client,address,**kwargs):
-        """
-        A slightly more performant version of self.await message
-        that first waits for the WebSocket handshake and then
-        if it is sucessfull it establishes the connection
-        """
         headers = kwargs.get('headers')
 
-        if not headers: #On Plain WebSocket server here the request is sent 
-            data = client.recv(self.global_max_size)
-            headers : dict = ParseHeaders(data)
+        data = client.recv(self.global_max_size)
+        headers : dict = ParseHeaders(data.split(b'\r\n\r\n')[0]) # Request body is redundant
         
         #Check if the path is found
-        path : str = headers['method'].split(" ")[1]
+        path : str = headers['method'].split(" ",1)[1]
         if not path in self.routes:
             print(f"(WS) : {str(datetime.now())} Connection Not Found \"{path}\" {address}")
             return client.close()
@@ -343,8 +395,7 @@ class RoutedWebsocketServer(WebsocketServer):
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
-            if len(data) == 0:
-                print("Data is 0")
+            if data[0] == 136 or len(data) == 0: #136 exit code
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
@@ -356,7 +407,7 @@ class RoutedWebsocketServer(WebsocketServer):
 
 class Server(RoutedWebsocketServer):
     
-    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs) -> None:
+    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,**kwargs) -> None:
         super(Server, self).__init__(socket_paths,host,port,global_max_size,http='',URLS=http_paths)
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
@@ -425,10 +476,6 @@ class Server(RoutedWebsocketServer):
                         request += msg
                     parsed : str = decodeURI(request.decode(errors='ignore'))
                     
-                    # print(parsed)
-                    # headers = self.parse(bytes(parsed,encoding='utf-8'))
-                    # print(headers,"\tThis is parsed")
-
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':

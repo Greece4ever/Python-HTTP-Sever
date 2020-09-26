@@ -1,3 +1,9 @@
+def ffs(x):
+    return (x&-x).bit_length()-1
+
+def binraw(trm : bin):
+    return str(bin(trm)).replace('0b','') 
+
 def ReceiveData(inputData):
     byteArray =  inputData
     datalength = byteArray[1] & 127
@@ -20,7 +26,7 @@ def ReceiveData(inputData):
 
 def SendData(data):
     bytesFormatted = []
-    bytesFormatted.append(129)
+    bytesFormatted.append(129) 
 
     bytesRaw = data.encode()
     bytesLength = len(bytesRaw)
@@ -44,3 +50,6 @@ def SendData(data):
     bytesFormatted = bytes(bytesFormatted)
     bytesFormatted = bytesFormatted + bytesRaw
     return bytesFormatted
+
+if __name__ == "__main__":
+    pass

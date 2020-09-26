@@ -7,7 +7,6 @@ import pprint,os,threading
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 
 class Home(View):
-
     # @cache.CacheDecorator
     def GET(self,request,**kwargs):
         isperm = kwargs.get('isPermitted')
@@ -64,8 +63,19 @@ class RedirectView(View):
     def GET(self,request):
         return status.Redirect().__call__('/poutsa')
 
+S_PATH = r'C:\Users\Spartakos\Desktop\server\tests\socket.html'
+
+class WSView(View):
+    def GET(self,request):
+        return status.Http200().__call__(template(S_PATH))
+
 URLS : dict = {
     r"^(\/)?" : Home(),
+    r"(\/)?nova(\/)?\?(.*)" : WSView(),
+    r"(\/)?peos(\/)?\?(.*)" : WSView(),
+    r"(\/)?sql(\/)?\?(.*)" : WSView(),
+    r"(\/)?pie(\/)?\?(.*)" : WSView(),
+
     '/another' : ShitJson(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
@@ -132,11 +142,12 @@ class SimpleWebSocketServer(WebsocketServer):
 
 PATHS = {
     '/peos' : CustomRoute(),
+    '/sql' : CustomRoute(),
+    '/nova' : CustomRoute(),
+    '/pie' : CustomRoute()
 }
 
-URLS['/SQL'] = CustomRoute()
-
 server = HttpServer(URLS=URLS,port=8000)
-ws_server = SimpleWebSocketServer(port=69)
+ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
 threading.Thread(target=server.start).start()
 threading.Thread(target=ws_server.start).start()

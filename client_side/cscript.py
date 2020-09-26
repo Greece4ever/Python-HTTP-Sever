@@ -44,12 +44,11 @@ def findScript(html,content,compiled : Tuple[bool,str] = (False,'')):
             indx2 = html.index("?>")
             statement = html[indx1:indx2+2]
             cl = "code = '' \n" + "if True is not False:" + parseCode(statement,content)
-            # print(cl,end="\n\n")
             exec(cl)
             html = html.replace(statement,"\n".join(INDEX))
             STATEMENTS.append(statement)
         except Exception as f:
             if type(f) == ValueError:
                 break
-            raise f    
+            raise f   
     return html
