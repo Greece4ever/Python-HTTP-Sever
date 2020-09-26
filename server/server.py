@@ -255,7 +255,6 @@ class WebsocketServer(HttpServer):
             print(f"(WS) : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
             return client.close() #Close if there was an Exception or return None
 
-        
         #Increment the number of clients and print 
         num_client : int = self.clients.__len__()+1
         print(f"(WS) : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
@@ -264,14 +263,18 @@ class WebsocketServer(HttpServer):
         self.clients.append(client)
 
         while True:
-            data = client.recv(self.max_size)
+            try:
+                data = client.recv(self.max_size)
+            except:
+                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
+                return self.handleDisconnect(client)
 
-            if len(data) == 0:
+            if data[0] == 136 or len(data) == 0:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client);return ...
 
             print(f"(WS) : {str(datetime.now())} Received Message {address}")
-            decoded = SocketBin(data)   
+            decoded = SocketBin(data)
             self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
 
     def start(self):
