@@ -145,10 +145,10 @@ PATHS = {
     '/pie' : CustomRoute()
 }
 
-# full_server = Server(socket_paths=PATHS,http_paths=URLS)
+server = Server(socket_paths=PATHS,http_paths=URLS)
 # full_server.start()
-server = HttpServer(URLS=URLS,port=8000)
+# server = HttpServer(URLS=URLS,port=8000)
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
-ws_server = SimpleWebSocketServer(port=69)
+# ws_server = SimpleWebSocketServer(port=69)
 threading.Thread(target=server.start).start()
-threading.Thread(target=ws_server.start).start()
+# threading.Thread(target=ws_server.start).start()

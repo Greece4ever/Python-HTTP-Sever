@@ -16,19 +16,12 @@ from traceback import print_exception
 # < - File handling-Decoding
 from os.path import getsize,join
 from urllib.request import unquote
-from math import ceil
 
-import pprint
-
-def ffs(x):
-    """Returns the index, counting from 0, of the
-    least significant set bit in `x`.
-    """
-    return (x&-x).bit_length()-1
-
-
+# < - Websocket handling functions
 SocketBin : callable;SocketBinSend : callable
 SocketBin,SocketBinSend = websocket.ReceiveData,websocket.SendData
+DataWait : callable = websocket.AwaitSocketData 
+EnsureSocket : callable = websocket.EnsureSocket
 
 def lazy_read(file): #Function to lazy read
     while True:
@@ -78,7 +71,9 @@ class HttpServer:
                     # Only if the path is found wait for the full fucking request
                     if not hasBodyParsed:
                         body = kwargs.get('body')
+                        client.settimeout(4)
                         body = AwaitFullBody(headers,body,lambda : client.recv(self.receive_size))
+                        client.settimeout(None)
                         headers = headers,body
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
@@ -216,23 +211,16 @@ class WebsocketServer(HttpServer):
         key = kwargs.get('key')
         return client.send(status.Http101().__call__(key))
 
-    # TODO => FIGURE OUT HOW PAYLOAD LENGTH FUCKING WORKS
     def handleWebSocket(self,client,address,**kwargs):
         #TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
+        client.settimeout(4)
         data = client.recv(1024)
+        client.settimeout(None)
         data = data.split(b'\r\n\r\n',1)
         headers = ParseHeaders(data[0])
 
-        if 'Upgrade' in headers:
-            if headers['Upgrade'].lower()=='websocket':
-                print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
-            else:
-                print(f'(WS) : {headers["method"]} | {str(datetime.now())} : Invalid WS Response {address}')
-                return client.close()
-        else:
-            print(f'(WS) : {headers["method"]} | {str(datetime.now())} : Invalid WS Response {address}')
-            return client.close()
 
+        EnsureSocket(headers,(client,address))
         hndl = self.handleTraceback(lambda x : self.onConnect(client,adress=address,send_function=self.send,key=headers['Sec-WebSocket-Key']),"onConnect")                
 
         if not hndl:
@@ -252,40 +240,19 @@ class WebsocketServer(HttpServer):
             except:
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 return self.handleDisconnect(client)
-            
-            fin = data[1] & 127
-            raw_bytes = "".join([
-                bin(byte).replace("0b",'') for byte in data
-            ])
-            fin2 = int("".join([item for item in raw_bytes[9:15+1]]),2)
-            print(fin,fin2,fin==fin2)
 
-            #L1: Strangely payload should be int(payload / 1024) instead of ceil
-            if fin == 126:
-                payload : int = int.from_bytes([data[2],data[3]],'big') # THAT'S IT
-                loop_times : int = int(payload / self.max_size) # NOTE L1:
-                print(payload,'<--- PAYLOAD')
-                print(loop_times,"<--- LOOP TIMES")
-                for _ in range(loop_times):
-                    data += client.recv(self.max_size)
-                decoded = SocketBin(data)
+            if data[0] == 136 or len(data) == 0: # if 0th byte == 136 is exit code
+                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
+                return self.handleDisconnect(client)
+
+            fin = data[1] & 127 # for decoding the length of the message
+
+            if fin in (126,127):
+                decoded = DataWait(fin,data,lambda : client.recv(self.max_size),self.max_size,prnt_func=lambda pld: print(f"(WS) : {str(datetime.now())} Received Message (Payload : {pld}) {address}"))
                 self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
                 continue
 
-            elif fin == 127:
-                payload : int = int.from_bytes(data[2:10],'big')
-                print(payload,'<--- PAYLOAD')
-                loop_times : int = int(payload) #NOTE L1:
-                for _ in range(loop_times):
-                    data += client.recv(self.max_size)
-                    self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
-                    continue
-
-            if data[0] == 136 or len(data) == 0: # 0th byte 136 is exit code
-                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client);return ...
-
-            print(f"(WS) : {str(datetime.now())} Received Message {address}")
+            print(f"(WS) : {str(datetime.now())} Received Message (Payload {fin}) {address}")
             decoded = SocketBin(data)
             self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
 
@@ -319,10 +286,14 @@ class RoutedWebsocketServer(WebsocketServer):
         headers = kwargs.get('headers')
 
         if not kwargs.get('dont_wait'):
+            client.settimeout(5)
             data = client.recv(self.global_max_size)
+            client.settimeout(None)
             headers : dict = ParseHeaders(data.split(b'\r\n\r\n')[0]) # Request body is redundant
         else:
             headers = kwargs.get('headers')
+
+        EnsureSocket(headers,(client,address))
 
         #Check if the path is found
         path : str = headers['method'].split(" ",1)[1]
@@ -357,6 +328,13 @@ class RoutedWebsocketServer(WebsocketServer):
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
+
+            fin = data[1] & 127 #Decode the length of the message
+            
+            if fin in (126,127):
+                decoded = DataWait(fin,data,lambda : client.recv(CWM.MaxSize()),CWM.MaxSize(),prnt_func=lambda pld: print(f"(WS) {path} : {str(datetime.now())} Received Message (Payload : {pld}) {address}"))
+                self.handleTraceback(lambda x : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=self.send),"onMessage")                                
+                continue
             
             print(f"(WS) {path} : {str(datetime.now())} Received Message {address}")
             decoded = SocketBin(data)    
@@ -376,7 +354,9 @@ class Server(RoutedWebsocketServer):
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
+        client.settimeout(5) # 5 sec wait time
         request = client.recv(1024)
+        client.settimeout(None) # clear the timeout
 
         if len(request) == 0:
             return client.close()

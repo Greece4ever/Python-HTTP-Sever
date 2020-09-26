@@ -6,7 +6,6 @@ def decodeURI(expression : Union[str,bytes]) -> str:
         expression = expression.decode()
     return unquote(expression.replace("+",' ')).strip()
 
-
 def ParseHeaders(headers : bytes) -> dict:
     y = headers.split(b'\r\n')
     TMP_DICT = {}
