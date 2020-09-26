@@ -57,6 +57,7 @@ class PostView(View):
         return status.Http200().__call__(template(r"C:\Users\Spartakos\Desktop\server\tests\test.html",usePythonScript=True))
 
     def POST(self,request):
+        pprint.pprint(request)
         return status.Http200().__call__("""<span style='color : red' >if</span><span>(<span>x</span>==<span style='color : blue'>1</span>)""")
 
 class RedirectView(View):
@@ -147,7 +148,10 @@ PATHS = {
     '/pie' : CustomRoute()
 }
 
-server = HttpServer(URLS=URLS,port=8000)
-ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
-threading.Thread(target=server.start).start()
-threading.Thread(target=ws_server.start).start()
+
+full_server = Server(socket_paths=PATHS,http_paths=URLS)
+full_server.start()
+# server = HttpServer(URLS=URLS,port=8000)
+# ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
+# threading.Thread(target=server.start).start()
+# threading.Thread(target=ws_server.start).start()

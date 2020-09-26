@@ -109,12 +109,27 @@ def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable) -> 
 
     if None in (ctype,length):
         return ''
-    
-    if len(initial_body) < lenght:
-        for _ in range(ceil(lenght / 1024)):
+    code : int
+
+    boundary = None    
+    if ctype == 'application/x-www-form-urlencoded':
+        code = 0
+    else:
+        code = 1
+        for value in ctype:
+            boundary : Exception = KeyError
+            for value in ctype:
+                if 'boundary' in value:
+                    boundary : bytes =  value.split('=')[-1].encode()
+            
+    length : int = int(length)
+    in_body_len = len(initial_body)
+    if (in_body_len - length) < 0:
+        wait_times = ceil((length - in_body_len) / 1024)
+        for _ in range(wait_times):
             response = await_data()
             initial_body += response
-    return ParseBody(initial_body)
+    return ParseBody(initial_body,code=code,boundary=boundary)
 
 if __name__ == "__main__":
     pass

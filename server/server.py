@@ -55,7 +55,7 @@ class HttpServer:
         param: page505 : str = STANDAR_500_PAGE 
     """
 
-    def __init__(self,host : str = LOCALHOST,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
+    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
         isHttp = kwargs.get('http')
         print(f"Initiliazing local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
@@ -64,22 +64,25 @@ class HttpServer:
         self.urls : dict = kwargs.get("URLS")
         self.page404 : callable = page404 
         self.page500 : str = page500
+        self.receive_size = receive_size
         del isHttp
 
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict,**kwargs) -> None:
         #Loop thorugh each URL searching for the TARGET
-        target = headers[0]["method"].split(" ")[1]
+        hasBodyParsed : bool = type(headers) in (tuple,list)
+        target = headers[0]["method"].split(" ")[1] if hasBodyParsed else headers["method"].split(" ")[1]
         for url in URLS:
             match = re.fullmatch(url,target) #full regex match
             if match: #linear search is the only way to go with regex
                 try:
-                    
                     # Only if the path is found wait for the full fucking request
-                    if len(headers) == 1:
-                        body = kwargs.get(body)
-                        body = AwaitFullBody(body)
+                    if not hasBodyParsed:
+                        body = kwargs.get('body')
+                        body = AwaitFullBody(headers,body,lambda : client.recv(self.receive_size))
+                        headers = headers,body
+                    else:
+                        headers[0]['IP'] = self.get_client_ip(client)
 
-                    headers[0]['IP'] = self.get_client_ip(client)
                     msg = URLS.get(url).__call__(headers)
                     if isinstance(msg,tuple): #Binary? file
                         with open(msg[1],'rb+') as file:
@@ -117,14 +120,14 @@ class HttpServer:
         client,address = client 
         client.settimeout(5)
         try:
-            request = client.recv(1024) #Await for messages
+            request = client.recv(self.receive_size) #Await for messages
         except:
             return client.close()     
 
         if len(request) == 0:
             return client.close()
 
-        headers = ParseHTTP(request,lambda : client.recv(1024))
+        headers = ParseHTTP(request,lambda : client.recv(self.receive_size))
 
         print(f'(HTTP) : {headers[0]["method"]} | {str(datetime.now())} : {address}')
         return self.handleHTTP(client,headers, URLS)
@@ -161,7 +164,9 @@ class WebsocketServer(HttpServer):
         self.max_size = max_size
         isHttp = kwargs.get('http')
         super(WebsocketServer,self).__init__(host=host,port=port,http=f'{"WS" if isHttp is None else "Standar Server"}',**kwargs)
-        del isHttp,self.page404,self.page500,self.urls
+        del isHttp
+        if (not kwargs.get('rdel')):
+            del self.urls,self.page404,self.page500
 
     def AwaitSocket(self,add_to_clients : bool = True):
         """Wait for new connections"""
@@ -370,9 +375,12 @@ class RoutedWebsocketServer(WebsocketServer):
     def handleWebSocket(self,client,address,**kwargs):
         headers = kwargs.get('headers')
 
-        data = client.recv(self.global_max_size)
-        headers : dict = ParseHeaders(data.split(b'\r\n\r\n')[0]) # Request body is redundant
-        
+        if not kwargs.get('dont_wait'):
+            data = client.recv(self.global_max_size)
+            headers : dict = ParseHeaders(data.split(b'\r\n\r\n')[0]) # Request body is redundant
+        else:
+            headers = kwargs.get('headers')
+
         #Check if the path is found
         path : str = headers['method'].split(" ",1)[1]
         if not path in self.routes:
@@ -417,11 +425,11 @@ class Server(RoutedWebsocketServer):
         concurrently at the same adress and port. The way connections\n
         are distinguished is by looking at the Upgrade header's value.\n
         if it is not present or it is anything else other than 'websocket'\n
-        then it is interpeted as HTTP but if else it is authenticated as ws.\n 
+        then it is interpeted as HTTP else it is authenticated as ws.\n 
     """
     
     def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,**kwargs) -> None:
-        super(Server, self).__init__(socket_paths,host,port,global_max_size,http='',URLS=http_paths)
+        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1)
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
@@ -430,18 +438,24 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
 
-        headers,body = request.split(b'\r\n\r\n')
+        spl = request.split(b'\r\n\r\n',1)
+        headers,body = spl
         headers = ParseHeaders(headers)
                             
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
                 print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
-                return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
+                return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers,'dont_wait' : True}).start()
         
         #Normal HTTP Connection
         print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS),kwargs={'body' : body}).start()
+
+    def start(self):
+        print(f'({str(datetime.now())}) HTTP && WS Server has gone live.')
+        return self.AwaitRequest()
+
 
 if __name__ == '__main__':
     pass
