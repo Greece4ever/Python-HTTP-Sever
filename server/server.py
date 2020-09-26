@@ -1,6 +1,6 @@
 # < - Package Imports
 from ..client_side import status
-from ..Parsing.http import ParseHeaders,ParseHTTP
+from ..Parsing.http import ParseHeaders,ParseHTTP,AwaitFullBody
 from ..Parsing import websocket
 
 # < - Server Hadnling
@@ -66,13 +66,19 @@ class HttpServer:
         self.page500 : str = page500
         del isHttp
 
-    def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict) -> None:
+    def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict,**kwargs) -> None:
         #Loop thorugh each URL searching for the TARGET
         target = headers[0]["method"].split(" ")[1]
         for url in URLS:
             match = re.fullmatch(url,target) #full regex match
             if match: #linear search is the only way to go with regex
                 try:
+                    
+                    # Only if the path is found wait for the full fucking request
+                    if len(headers) == 1:
+                        body = kwargs.get(body)
+                        body = AwaitFullBody(body)
+
                     headers[0]['IP'] = self.get_client_ip(client)
                     msg = URLS.get(url).__call__(headers)
                     if isinstance(msg,tuple): #Binary? file
@@ -200,7 +206,7 @@ class WebsocketServer(HttpServer):
             CLS.pop(indx)
             client.close()
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
-
+    #NOTE : -> DECAPETATED 
     def AwaitMessage(self,client,address):
         """While a client is connected,
            this method is executing
@@ -240,7 +246,7 @@ class WebsocketServer(HttpServer):
         key = kwargs.get('key')
         return client.send(status.Http101().__call__(key))
 
-    # NOTE : TODO => FIGURE OUT HOW PAYLOAD LENGTH FUCKING WORKS
+    # TODO => FIGURE OUT HOW PAYLOAD LENGTH FUCKING WORKS
     def handleWebSocket(self,client,address,**kwargs):
         #TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
         data = client.recv(1024)
@@ -406,85 +412,36 @@ class RoutedWebsocketServer(WebsocketServer):
             self.handleTraceback(lambda _ : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=self.send),"onMessage",path)
 
 class Server(RoutedWebsocketServer):
+    """
+        Server that can handle both websocket and HTTP connections\n
+        concurrently at the same adress and port. The way connections\n
+        are distinguished is by looking at the Upgrade header's value.\n
+        if it is not present or it is anything else other than 'websocket'\n
+        then it is interpeted as HTTP but if else it is authenticated as ws.\n 
+    """
     
     def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,**kwargs) -> None:
         super(Server, self).__init__(socket_paths,host,port,global_max_size,http='',URLS=http_paths)
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
-        client.settimeout(5) 
-        try:
-            request = client.recv(1024) 
-        except:
-            print(f'(Server) | {str(datetime.now())} : Timed out {address}')
-            return -1
+        request = client.recv(1024)
 
         if len(request) == 0:
             return client.close()
-        
-        if 'Content-Length' in headers:
-            crem : int = int(headers['Content-Length']) - 1024
-            if (crem  > 0):
-                boundrary = headers['Content-Type'].split(';') # Where new data is sent
 
-                #Find the Form-data spliiter
-                for q in boundrary:
-                    if 'boundary' in q:
-                        boundrary = q.split('=')[-1];break
-
-                if type(boundrary) != list:
-                    boundrary = boundrary.encode()
-                    f_p = request[request.index(boundrary + b'\r\nContent-Disposition'):]
-                    target = f_p.split(b"\r\n",4)
-
-                    if not 'files' in headers:
-                        headers['files'] = [*target[4:]]
-
-                    #Await for new Responses
-                    l : int = 0
-                    loop_times = iter(range(ceil(crem / 1024)))
-                    BIN_DATA : list = [self.parseHTMLDATA(f_p.split(b"\r\n",3))]
-                    for _ in loop_times:
-                        print('WAITING : {}'.format(l))
-                        # client.settimeout(5)
-                        bindata = client.recv(1024) #Await for file transfer
-                        if boundrary in bindata:
-                            print("BOUNDARY")
-                            res = self.parseFile(boundrary,bindata,BIN_DATA)
-                            # print(res)
-                            headers['files'][l] += res[0] #before
-                            l+=1
-                            headers['files'].insert(l,res[1]) #after 
-                            continue
-                        headers['files'][l] += bindata
-
-                    j : int
-                    for j in range(len(headers['files'])):
-                        headers['files'][j] = FileObject('',headers['files'][j])
-                        j+=1
-
-                    j : int = 0
-                    for j in range(len(BIN_DATA)):
-                        BIN_DATA[j]['data'] = headers['files'][j]
-
-                    headers['files'] = BIN_DATA 
-                else:
-                    DATA = ''
-                    loop_times = iter(range(ceil(crem / 1024)))
-                    for _ in loop_times:
-                        msg = client.recv(1024)
-                        request += msg
-                    parsed : str = decodeURI(request.decode(errors='ignore'))
-                    
+        headers,body = request.split(b'\r\n\r\n')
+        headers = ParseHeaders(headers)
+                            
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
                 print(f'(WS) : {headers["method"]} | {str(datetime.now())} : {address}')
                 return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers}).start()
         
-    
+        #Normal HTTP Connection
         print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
-        return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS)).start()
+        return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS),kwargs={'body' : body}).start()
 
 if __name__ == '__main__':
     pass

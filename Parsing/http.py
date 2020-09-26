@@ -104,6 +104,17 @@ def ParseHTTP(data : bytes,await_data : callable):
 
     return headers,()
 
+def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable) -> dict:
+    ctype,length = [headers.get('Content-Type'),headers.get('Content-Length')] #if they do not provide content-length they may go fuck themselves
+
+    if None in (ctype,length):
+        return ''
+    
+    if len(initial_body) < lenght:
+        for _ in range(ceil(lenght / 1024)):
+            response = await_data()
+            initial_body += response
+    return ParseBody(initial_body)
 
 if __name__ == "__main__":
     pass
