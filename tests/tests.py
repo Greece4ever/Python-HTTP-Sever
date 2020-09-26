@@ -2,8 +2,7 @@ from ..server.server import WebsocketServer,HttpServer,RoutedWebsocketServer,Ser
 from ..server.routes import View,template,SocketView
 from ..client_side import status
 # from cache import Cache
-import pprint
-import os
+import pprint,os,threading
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 
@@ -22,7 +21,7 @@ class ShitJson(View):
 
 class Chat(View):
     def GET(self,request):
-        return status.Http200().__call__(template(os.path.join(os.getcwd(),"index.html")))
+        return status.HttpBinary().__call__(r'C:\Users\Spartakos\Desktop\server\tests\socket.html',200,display_in_browser=True)
 
 class Chat2(View):
     def GET(self,request):
@@ -31,21 +30,8 @@ class Chat2(View):
 class RView(View):
     def GET(self,request):
         context = {
-            'words' :["a",
-                    "abandon",
-                    "ability",
-                    "able",
-                    "abortion",
-                    "about",
-                    "above",
-                    "abroad",
-                    "absence",
-                    "absolute",
-                    "absolutely",
-                    "absorb"]
+            'words' :["a","abandon","ability","able","abortion","about","above","abroad","absence","absolute","absolutely","absorb"]
         }
-        # page_num = request['method'].split('/')[-1]
-        # return status.Http200().__call__("<h2>You've visited page number {}!</h2>".format(page_num))
         return status.Http200().__call__(template("test.html",usePythonScript=True,context=context))
 
 import os
@@ -90,6 +76,7 @@ URLS : dict = {
     r'/redirect' : RedirectView()
 }
 
+# Routed WS Server
 class CustomRoute(SocketView):
     def onConnect(self,client,**kwargs):
         #Get the **kwarg arguments
@@ -122,16 +109,33 @@ class CustomRoute(SocketView):
         for client in path_info['clients']:
             send(client,"{} has left!".format(self.get_client_ip(client)))
 
-class ChatRoute(CustomRoute):
-    pass
+class SimpleWebSocketServer(WebsocketServer):
+    def onConnect(self,client,**kwargs):
+        key = kwargs.get("key")
+        msg_to_send = "{} has connected!".format(self.get_client_ip(client))
+        self.accept(client=client,key=key) #Accept the client request
+        for client in self.clients:
+            self.send(client,msg_to_send)
+        return True
+
+    def onMessage(self,**kwargs):
+        """Gets called when a message is received from the client side"""
+        data = kwargs.get('data')
+        for client in self.clients:
+            self.send(client,data)
+
+    def onExit(self,client,**kwargs):
+        for client in self.clients:
+            self.send(client,"{} has left!".format(self.get_client_ip(client)))
+
 
 PATHS = {
     '/peos' : CustomRoute(),
-    '/chat' : ChatRoute()
 }
 
 URLS['/SQL'] = CustomRoute()
 
 server = HttpServer(URLS=URLS,port=8000)
-# server = Server(PATHS,URLS,port=80)
-server.start()
+ws_server = SimpleWebSocketServer(port=69)
+threading.Thread(target=server.start).start()
+threading.Thread(target=ws_server.start).start()
