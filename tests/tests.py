@@ -52,7 +52,7 @@ import os
 
 class Imgres(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(os.path.join(os.getcwd(),'git.pdf'),200,display_in_browser=True)
+        return status.HttpBinary().__call__(os.path.join(r'C:\Users\Spartakos\Desktop','ΑΣΘΕΝΙΔΗΣ ΛΕΩΝΙΔΑΣ.PDF'),200,display_in_browser=True)
 
 class SampleView(View):
     def GET(self,request):
@@ -61,14 +61,25 @@ class SampleView(View):
             'random' : [
                 [int(random() * 255) for _ in range(3)] for __ in range(10) ]
         }
-        return status.Http200().__call__(template(os.path.join(os.getcwd(),"test2.html"),usePythonScript=True,context=context))
+        return status.Http200().__call__(template(r"C:\Users\Spartakos\Desktop\server\tests\test.html",usePythonScript=True,context=context))
+
+    def POST(self,request):
+        pprint.pprint(request)
+        return status.Http200().__call__("<h1>Helo World!</h1>")
 
 class PostView(View):
     def GET(self, request):
-        return status.Http200().__call__(template("C:\\Users\\progr\\OneDrive\\Υπολογιστής\\Server\\tests\\test.html",usePythonScript=True))
+        return status.Http200().__call__(template(r"C:\Users\Spartakos\Desktop\server\tests\test.html",usePythonScript=True))
 
     def POST(self,request):
-        return status.Http200().__call__("""<title>Hello</title>""")
+        # if len(request[-1]) > 0:
+        #     DIR_NAME : str = POST_DATA
+        #     os.mkdir(DIR_NAME)
+        #     for item in request[0]:
+        #         with open(os.path.join(os.getcwd(),DIR_NAME,item[]),'wb+') as f:
+        #             f.write(item['data'])
+        pprint.pprint(request)
+        return status.Http200().__call__("""<span style='color : red' >if</span><span>(<span>x</span>==<span style='color : blue'>1</span>)""")
 
 class RedirectView(View):
     def GET(self,request):
@@ -128,6 +139,6 @@ PATHS = {
 
 URLS['/SQL'] = CustomRoute()
 
-server = HttpServer(URLS=URLS)
+server = HttpServer(URLS=URLS,port=8000)
 # server = Server(PATHS,URLS,port=80)
 server.start()

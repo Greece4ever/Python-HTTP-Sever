@@ -1,6 +1,6 @@
 from ..client_side import status
-from ..parsing.http import ParseHeaders,ParseHTTP
-from ..parsing import websocket
+from ..Parsing.http import ParseHeaders,ParseHTTP
+from ..Parsing import websocket
 # < - Server Hadnling
 import socket
 import threading
@@ -30,22 +30,6 @@ def decodeURI(expression : Union[str,bytes]) -> str:
         expression = expression.decode()
     expression = expression.replace('"','').replace("'",'')
     return unquote(expression.replace("+",' ')).strip()
-
-class FileObject:
-    def __init__(self,name,data):
-        self.name = name
-        self.data = data
-
-    def __str__(self):
-        return self.name
-    
-    def __change__(self,name):
-        self.name = name
-
-    def save(self,path : str,name : str,buffersize : int) -> None:
-        with open(join(path,name),'wb+') as file:
-            for chunk in iter(self.data):
-                file.writelines(chunk)
 
 LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
@@ -87,7 +71,7 @@ class HttpServer:
             if match: #linear search is the only way to go with regex
                 try:
                     headers[0]['IP'] = self.get_client_ip(client)
-                    msg = URLS.get(url).__call__(headers[0])
+                    msg = URLS.get(url).__call__(headers)
                     if isinstance(msg,tuple): #Binary? file
                         with open(msg[1],'rb+') as file:
                             client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
@@ -132,7 +116,7 @@ class HttpServer:
         if len(request) == 0:
             return client.close()
 
-        headers = ParseHTTP(request,lambda : client.recv(1024) )  
+        headers = ParseHTTP(request,lambda : client.recv(1024) )
 
         print(f'(HTTP) : {headers[0]["method"]} | {str(datetime.now())} : {address}')
         return self.handleHTTP(client,headers, URLS)

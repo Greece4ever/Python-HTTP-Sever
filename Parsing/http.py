@@ -1,5 +1,17 @@
 from urllib.request import unquote;from typing import Union
-from math import ceil
+from math import ceil;import io
+
+class FileObject:
+    def __init__(self,name,data):
+        self.name : str = name
+        self.data : bytes = io.BytesIO(data)
+
+    def __str__(self):
+        return self.name
+    
+    def __change__(self,name):
+        self.name = name
+
 
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
@@ -22,6 +34,14 @@ def ParseHeaders(headers : bytes) -> dict:
         TMP_DICT[key] = value
     return TMP_DICT
 
+def ParseFileContent(i):
+    if b':' in i:
+        spl : list = i.split(b':')
+        return spl[0].strip(),spl[1].strip()
+
+    elif b'=' in i:
+        spl : list = i.split(b'=')
+        return  spl[0].strip(),spl[1].strip()
 
 def ParseBody(body : bytes,code : int,**kwargs):
     if code == 0:
@@ -36,20 +56,36 @@ def ParseBody(body : bytes,code : int,**kwargs):
         FORM_DATA : list = []
         split = kwargs.get('boundary')
         f_data = body.split(b'--' + split)
+        f_data.pop(-1)
         for item in f_data:
             if len(item) < 2:
                 continue
+
             attrs = {}
             itm_prs : list = item.split(b'\r\n\r\n',1)
             bl = itm_prs[0].split(b';')
             for i in bl:
-                if b':' in i:
-                    spl : list = i.split(b':')
-                elif b'=' in i:
-                    spl : list = i.split(b'=')
-                attrs[spl[0].strip()] = spl[1].strip()
+                if b'\r\n' in i:
+                    i = i.split(b'\r\n')
+                    for i_s in i:
+                        _ =  ParseFileContent(i_s)
+                        if _ is None:
+                            continue
+                        k,v = [decodeURI(attr.replace(b'"',b'').replace(b"'",b'')) for attr in _]
+                        attrs[k] = v
+                    continue
                 
-            attrs['data'] = itm_prs[-1]
+                _ = ParseFileContent(i)
+                if _ is None:
+                    continue
+                k,v = [decodeURI(attr.replace(b'"',b'').replace(b"'",b'')) for attr in _]
+                attrs[k] = v
+            
+            if 'filename' in attrs:
+                attrs['data'] = io.BytesIO(itm_prs[-1])
+            else:
+                attrs['data'] = io.StringIO(str(itm_prs[-1]))
+
             FORM_DATA.append(attrs)
 
     return FORM_DATA
@@ -57,7 +93,6 @@ def ParseBody(body : bytes,code : int,**kwargs):
 def ParseHTTP(data : bytes,await_data : callable):
     headers : bytes
     body : bytes
-    # print(data.split(b'\r\n\r\n'))
     headers,body = data.split(b'\r\n\r\n',1) # Headers and body
     headers = ParseHeaders(headers)
 

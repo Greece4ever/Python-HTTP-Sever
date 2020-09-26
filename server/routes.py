@@ -59,7 +59,7 @@ class View:
         return status.Http405().__call__(UI405("PATCH"))
 
     def __call__(self,request):
-        return self.cases.get(request['method'].split(" ")[0].upper())(request)
+        return self.cases.get(request[0]['method'].split(" ")[0].upper())(request)
 
 class SocketView:
     """
