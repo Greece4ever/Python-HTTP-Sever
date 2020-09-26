@@ -211,41 +211,6 @@ class WebsocketServer(HttpServer):
             CLS.pop(indx)
             client.close()
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
-    #NOTE : -> DECAPETATED 
-    def AwaitMessage(self,client,address):
-        """While a client is connected,
-           this method is executing
-           in an infinite loop checking
-           if they are sending messages
-        """
-        while True:
-            try:
-                data = client.recv(self.max_size)
-            except:
-                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client)
-                self.handleTraceback(lambda x : self.onExit(client),"onExit");break
-
-            if len(data) == 0:
-                print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client)
-                self.handleTraceback(lambda x : self.onExit(client),"onExit");break
-
-            #First Time Connection
-            try: 
-                #Parse The Headers and initialize Websocket
-                headers = ParseHeaders(data)
-                HTTP_MSG = status.Http101().__call__(headers['Sec-WebSocket-Key'])
-                client.send(HTTP_MSG)
-                self.handleTraceback(lambda x : self.onConnect((client,address)),"onConnect")                
-                print(f"(WS) : {str(datetime.now())} Connection Established {address}")
-
-            #Typical Message
-            except Exception: 
-                print(f"(WS) : {str(datetime.now())} Received Message {address}")                
-                decoded = SocketBin(data)
-                self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                               
-        client.close()
 
     def accept(self,client : socket.socket,**kwargs) -> None:
         key = kwargs.get('key')
@@ -295,48 +260,26 @@ class WebsocketServer(HttpServer):
             fin2 = int("".join([item for item in raw_bytes[9:15+1]]),2)
             print(fin,fin2,fin==fin2)
 
-
+            #L1: Strangely payload should be int(payload / 1024) instead of ceil
             if fin == 126:
-                b1 = str(bin( data[3])).replace('0b','') 
-                b2 = str(bin( data[4] )).replace('0b','') 
-                
-                b_1 = websocket.binraw(data[1])
-                b_2 = websocket.binraw(data[2])
-                print(int(b_1+b_2,2),"TRANSFOMED")
-                print(int.from_bytes([data[1],data[2]],'big'),"PYTHON3")
-
-
-                f1 = int(b1+b2,2)
-                fin = int.from_bytes([data[3],data[4]],'big')
-                print("TRUE IS {}".format(f1))
-                print(fin,'len is 126')
-                loop_times = round(fin / self.max_size)
-                print("I SHALL LOOP {} TIMES!".format(loop_times))
+                payload : int = int.from_bytes([data[2],data[3]],'big') # THAT'S IT
+                loop_times : int = int(payload / self.max_size) # NOTE L1:
+                print(payload,'<--- PAYLOAD')
+                print(loop_times,"<--- LOOP TIMES")
                 for _ in range(loop_times):
                     data += client.recv(self.max_size)
-                    print("Received")
                 decoded = SocketBin(data)
                 self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
                 continue
 
             elif fin == 127:
-                fin = int.from_bytes(data[3:8],'big')
-                print(data[3:8])
-                print([item for item in data[3:8]])
-                print(fin,'len is 127')
-                loop_times = ceil(fin / self.max_size)
-                print("I SHALL LOPP {}".format(loop_times))
+                payload : int = int.from_bytes(data[2:10],'big')
+                print(payload,'<--- PAYLOAD')
+                loop_times : int = int(payload) #NOTE L1:
                 for _ in range(loop_times):
                     data += client.recv(self.max_size)
-                    print("Recevied BIG")
-                break
-            else:
-                print(fin,'len is 125 or lower')
-
-            # mask = data[2] & 127 #if 127 this is masking key
-            # d = bin(data[2]).replace('0b','');ms_bit = ffs(data[2]) #most significant bit of the 2nd byte
-            # d = list(d);d.pop(ms_bit) #rempve the most significant bit 
-            # pay_len = int("".join(d),2)
+                    self.handleTraceback(lambda x : self.onMessage(data=decoded,sender_client=client),"onMessage")                                
+                    continue
 
             if data[0] == 136 or len(data) == 0: # 0th byte 136 is exit code
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")

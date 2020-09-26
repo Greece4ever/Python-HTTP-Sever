@@ -2,7 +2,7 @@ from ..server.server import WebsocketServer,HttpServer,RoutedWebsocketServer,Ser
 from ..server.routes import View,template,SocketView
 from ..client_side import status
 # from cache import Cache
-import pprint,os,threading
+import pprint,os,threading;import os
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 
@@ -32,8 +32,6 @@ class RView(View):
             'words' :["a","abandon","ability","able","abortion","about","above","abroad","absence","absolute","absolutely","absorb"]
         }
         return status.Http200().__call__(template("test.html",usePythonScript=True,context=context))
-
-import os
 
 class Imgres(View):
     def GET(self,request):
@@ -140,7 +138,6 @@ class SimpleWebSocketServer(WebsocketServer):
         for client in self.clients:
             self.send(client,"{} has left!".format(self.get_client_ip(client)))
 
-
 PATHS = {
     '/peos' : CustomRoute(),
     '/sql' : CustomRoute(),
@@ -148,10 +145,10 @@ PATHS = {
     '/pie' : CustomRoute()
 }
 
-
-full_server = Server(socket_paths=PATHS,http_paths=URLS)
-full_server.start()
-# server = HttpServer(URLS=URLS,port=8000)
+# full_server = Server(socket_paths=PATHS,http_paths=URLS)
+# full_server.start()
+server = HttpServer(URLS=URLS,port=8000)
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
-# threading.Thread(target=server.start).start()
-# threading.Thread(target=ws_server.start).start()
+ws_server = SimpleWebSocketServer(port=69)
+threading.Thread(target=server.start).start()
+threading.Thread(target=ws_server.start).start()
