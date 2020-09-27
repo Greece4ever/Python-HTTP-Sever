@@ -5,16 +5,24 @@ from ..client_side import status
 import pprint,os,threading;import os
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
-STATIC_FILES_DIR = r'C:\Users\Spartakos\Desktop\server\static'
+STATIC_FILES_DIR : str = r'C:\Users\Spartakos\Desktop\server\static'
 
 class Home(View):
     # @cache.CacheDecorator
     def GET(self,request,**kwargs):
         return status.Http200().__call__("Home Page") 
 
-class ShitJson(View):
+class JsonView(View):
     def GET(self,request):
-        return status.HttpJson().__call__({"hello" : 1},200)
+        return status.HttpBinary().__call__(r'C:\Users\Spartakos\Desktop\server\tests\json.html',200,display_in_browser=True)
+        # return status.HttpJson().__call__({"hello" : 1},200)
+
+    def POST(self,request):
+        pprint.pprint(request)
+        return status.HttpJson().__call__({
+            'state' : 'ok',
+            'isGood' : True
+        },200)
 
 class Chat(View):
     def GET(self,request):
@@ -58,12 +66,15 @@ class PostView(View):
         return status.Http200().__call__(template(r"C:\Users\Spartakos\Desktop\server\tests\test.html",usePythonScript=True))
 
     def POST(self,request):
+        pprint.pprint(request)
         body = request[-1]
         for item in body:
             if 'filename' in item:
                 with open(os.path.join(r'C:\Users\Spartakos\Desktop\server\static',item['filename']),'wb+') as f:
                     for line in iter(item['data'].readlines()):
                         f.write(line)
+            else:
+                print(item,item['data'].read())
 
         return status.Http200().__call__("""<span style='color : red' >if</span><span>(<span>x</span>==<span style='color : blue'>1</span>)""")
 
@@ -83,8 +94,7 @@ URLS : dict = {
     r"(\/)?peos(\/)?\?(.*)" : WSView(),
     r"(\/)?sql(\/)?\?(.*)" : WSView(),
     r"(\/)?pie(\/)?\?(.*)" : WSView(),
-
-    '/another' : ShitJson(),
+    r'(\/)?json(\/)?' : JsonView(),
     '/chat' : Chat(),
     '/chat2' : Chat2(),
     r'(\/)images\/(\d+)(\/)?' : Imgres(),

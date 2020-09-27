@@ -64,7 +64,6 @@ class HttpServer:
         assert type(CORS_DOMAINS) == list
         self.cors = self.CORS_DOMAINS = CORS_DOMAINS
         self.xframe =  X_FRAME('SAMEORIGIN')
-        
 
         if '*' in self.cors: #Everything is allowed
             self.cors = lambda _: CORS('*')
@@ -111,8 +110,8 @@ class HttpServer:
                         headers = self.ParseBody(kwargs.get('body'),client,headers) # Await for additional messages
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
-
                     msg : str = URLS.get(url).__call__(headers) #Call the view
+                    assert type(msg) in (tuple,bytes),"Response must only return ({},{}) by calling __call__ on the response, you return {}.".format(bytes,tuple,type(msg))
                     if isinstance(msg,tuple): #Binary file
                         with open(msg[1],'rb+') as file:
                             initial = self.HandleCORS(msg[0](getsize(msg[1])),headers) #Send the HTTP Headers with the file lenght
