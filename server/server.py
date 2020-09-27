@@ -1,6 +1,6 @@
 # < - Package Imports
 from ..client_side import status
-from ..Parsing.http import ParseHeaders,ParseHTTP,AwaitFullBody
+from ..Parsing.http import ParseHeaders,ParseHTTP,AwaitFullBody,replace
 from ..Parsing import websocket
 
 # < - Server Hadnling
@@ -34,6 +34,8 @@ LOCALHOST : str = "127.0.0.1"
 HTTP_PORT : int = 80
 STANDAR_404_PAGE : callable = lambda page : "<b>Page {} Was not Found (404 Status Code)</b>".format(page)
 STANDAR_500_PAGE : str = "<h1>500 Internal Server Error</h1>"
+CORS : callable = lambda origin : 'Access-Control-Allow-Origin : {}\r\n'.format(origin)
+
 
 class HttpServer:
     """
@@ -48,7 +50,7 @@ class HttpServer:
         param: page505 : str = STANDAR_500_PAGE 
     """
 
-    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,**kwargs):
+    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,port : int = HTTP_PORT,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,CORS_DOMAINS : list = [],**kwargs):
         isHttp = kwargs.get('http')
         print(f"Initiliazing local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
@@ -58,6 +60,24 @@ class HttpServer:
         self.page404 : callable = page404 
         self.page500 : str = page500
         self.receive_size = receive_size
+        assert type(CORS_DOMAINS) == list
+        self.cors = self.CORS_DOMAINS = CORS_DOMAINS
+        
+
+        if '*' in self.cors: #Everything is allowed
+            self.cors = lambda _: CORS('*')
+            tmp = '*'
+        
+        elif None in self.cors: #No Cors means it is automatically disallowed
+            self.cors = lambda _: ''
+            tmp = 'None (Only same site)'
+        
+        else:
+            self.cors = lambda domain : CORS(domain) if domain in self.CORS_DOMAINS else ''
+            tmp = f'{len(CORS_DOMAINS)} Domains'
+
+        print(f"(HTTP) Configured CORS Allowed Origins as {tmp}.")
+
         del isHttp
 
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict,**kwargs) -> None:
@@ -77,8 +97,11 @@ class HttpServer:
                         headers = headers,body
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
-
-                    msg = URLS.get(url).__call__(headers)
+                    msg : str = URLS.get(url).__call__(headers)
+                    isAllowed = headers.get("Origin") if not hasBodyParsed else headers[0].get('Origin')
+                    if isAllowed:
+                        origin = isAllowed
+                        indx = msg.index(b"\r\n")+2;msg = replace(indx,msg,self.cors(origin) )
                     if isinstance(msg,tuple): #Binary? file
                         with open(msg[1],'rb+') as file:
                             client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
@@ -241,7 +264,7 @@ class WebsocketServer(HttpServer):
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 return self.handleDisconnect(client)
 
-            if data[0] == 136 or len(data) == 0: # if 0th byte == 136 is exit code
+            if len(data) == 0 or data[0] == 136: # if 0th byte == 136 is exit code
                 print(f"(WS) : {str(datetime.now())} Connection Closed {address}")
                 return self.handleDisconnect(client)
 
@@ -277,7 +300,7 @@ class RoutedWebsocketServer(WebsocketServer):
         for item in paths:
             self.routes[item] =  {"clients" : [],"view" : paths[item]}
         super(RoutedWebsocketServer,self).__init__(host,port,**kwargs)
-        del self.clients;del self.max_size
+        del self.clients,self.max_size,CORS_DOMAINS
 
     def AwaitSocket(self):
         super(RoutedWebsocketServer,self).AwaitSocket()
@@ -349,22 +372,26 @@ class Server(RoutedWebsocketServer):
         then it is interpeted as HTTP else it is authenticated as ws.\n 
     """
     
-    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,**kwargs) -> None:
-        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1)
+    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,CORS_DOMAINS : list = [],**kwargs) -> None:
+        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1,CORS_DOMAINS=CORS_DOMAINS)
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
-        client.settimeout(5) # 5 sec wait time
-        request = client.recv(1024)
-        client.settimeout(None) # clear the timeout
+        # client.settimeout(5) # 5 sec wait time
+        request : bytes = client.recv(1024)
+        # client.settimeout(None) # clear the timeout
 
         if len(request) == 0:
             return client.close()
 
         spl = request.split(b'\r\n\r\n',1)
-        headers,body = spl
-        headers = ParseHeaders(headers)
-                            
+        try:
+            headers,body = spl
+            headers = ParseHeaders(headers)
+        except:
+            print(f"[ERROR] : {str(datetime.now())} | Invalid Requests From client ({address})")
+            return client.close()
+
         #WebSocket Connection
         if 'Upgrade' in headers:
             if headers['Upgrade'].lower()=='websocket':
@@ -378,6 +405,7 @@ class Server(RoutedWebsocketServer):
     def start(self):
         print(f'({str(datetime.now())}) HTTP && WS Server has gone live.')
         return self.AwaitRequest()
+
 
 
 if __name__ == '__main__':

@@ -1,6 +1,9 @@
 from urllib.request import unquote;from typing import Union
 from math import ceil;import io
 
+def replace(index : int,target : str,rplc : str) -> str:
+    return target[:index] + str(rplc).encode() + target[index:]
+
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
         expression = expression.decode()

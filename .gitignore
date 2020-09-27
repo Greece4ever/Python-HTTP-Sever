@@ -1,5 +1,6 @@
 #Files that are either binaries or are used for testing
 **/__pycache__
+*.pyc
 *.PNG
 *.m4v
 *.sqlite3

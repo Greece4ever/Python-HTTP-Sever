@@ -9,10 +9,7 @@ import pprint,os,threading;import os
 class Home(View):
     # @cache.CacheDecorator
     def GET(self,request,**kwargs):
-        isperm = kwargs.get('isPermitted')
-        if isperm:
-            return status.Http200().__call__("Home Page") 
-        return status.Http429().__call__("Too many requests 429")
+        return status.Http200().__call__("Home Page") 
 
 class ShitJson(View):
     def GET(self,request):
@@ -145,9 +142,9 @@ PATHS = {
     '/pie' : CustomRoute()
 }
 
-server = Server(socket_paths=PATHS,http_paths=URLS)
+# server = Server(socket_paths=PATHS,http_paths=URLS)
 # full_server.start()
-# server = HttpServer(URLS=URLS,port=8000)
+server = HttpServer(URLS=URLS,port=8000,CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com'])
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
 # ws_server = SimpleWebSocketServer(port=69)
 threading.Thread(target=server.start).start()
