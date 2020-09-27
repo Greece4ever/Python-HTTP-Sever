@@ -97,11 +97,12 @@ class HttpJson(Exception):
     @classmethod
     def __call__(self,template,status):
         try:
+            num = status
             status = NUM_STATUS.get(str(status))
         except:
             raise TypeError("Invalid HTTP Status code {}".format(status))
         data = json.dumps(template)
-        return (f"HTTP/1.1 {status}\r\n".encode()
+        return (f"HTTP/1.1 {num} {status}\r\n".encode()
                 +b"Content-Type: application/json\r\n"
                 +b"\r\n" 
                 +data.encode())    

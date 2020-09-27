@@ -145,6 +145,8 @@ def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable) -> 
         if type(ctype) == list:
             if 'json' in  ctype[0]:
                 code = 2
+            elif 'x-www-form-urlencoded' in ctype[0]:
+                code = 0
             else:
                 code = 1
                 for value in ctype:
@@ -152,7 +154,7 @@ def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable) -> 
                     for value in ctype:
                         if 'boundary' in value:
                             boundary : bytes =  value.split('=')[-1].encode()
-                            
+
     length : int = int(length)
     in_body_len = len(initial_body)
     if (in_body_len - length) < 0:

@@ -15,10 +15,9 @@ class Home(View):
 class JsonView(View):
     def GET(self,request):
         return status.HttpBinary().__call__(r'C:\Users\Spartakos\Desktop\server\tests\json.html',200,display_in_browser=True)
-        # return status.HttpJson().__call__({"hello" : 1},200)
 
     def POST(self,request):
-        pprint.pprint(request)
+        pprint.pprint(request[-1])
         return status.HttpJson().__call__({
             'state' : 'ok',
             'isGood' : True
