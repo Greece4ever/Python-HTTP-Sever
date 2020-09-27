@@ -397,6 +397,8 @@ class Server(RoutedWebsocketServer):
 
         if len(request) == 0:
             return client.close()
+        
+        print(request.decode())
 
         spl = request.split(b'\r\n\r\n',1)
         try:
@@ -419,7 +421,6 @@ class Server(RoutedWebsocketServer):
     def start(self):
         print(f'({str(datetime.now())}) HTTP && WS Server has gone live.')
         return self.AwaitRequest()
-
 
 
 if __name__ == '__main__':
