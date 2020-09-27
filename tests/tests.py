@@ -142,9 +142,10 @@ PATHS = {
     '/pie' : CustomRoute()
 }
 
-# server = Server(socket_paths=PATHS,http_paths=URLS)
+CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']
+server = Server(socket_paths=PATHS,http_paths=URLS,CORS_DOMAINS=CORS_DOMAINS)
 # full_server.start()
-server = HttpServer(URLS=URLS,port=8000,CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com'])
+# server = HttpServer(URLS=URLS,port=8000,CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com'])
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
 # ws_server = SimpleWebSocketServer(port=69)
 threading.Thread(target=server.start).start()

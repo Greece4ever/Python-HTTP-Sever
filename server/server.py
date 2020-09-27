@@ -98,7 +98,7 @@ class HttpServer:
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
                     msg : str = URLS.get(url).__call__(headers)
-                    isAllowed = headers.get("Origin") if not hasBodyParsed else headers[0].get('Origin')
+                    isAllowed = headers[0].get("Origin")
                     if isAllowed:
                         origin = isAllowed
                         indx = msg.index(b"\r\n")+2;msg = replace(indx,msg,self.cors(origin) )
@@ -300,7 +300,7 @@ class RoutedWebsocketServer(WebsocketServer):
         for item in paths:
             self.routes[item] =  {"clients" : [],"view" : paths[item]}
         super(RoutedWebsocketServer,self).__init__(host,port,**kwargs)
-        del self.clients,self.max_size,CORS_DOMAINS
+        del self.clients,self.max_size
 
     def AwaitSocket(self):
         super(RoutedWebsocketServer,self).AwaitSocket()
@@ -346,14 +346,13 @@ class RoutedWebsocketServer(WebsocketServer):
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
-            if data[0] == 136 or len(data) == 0: #136 exit code
+            if len(data) == 0 or  data[0] == 136: #136 exit code
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
             fin = data[1] & 127 #Decode the length of the message
-            
             if fin in (126,127):
                 decoded = DataWait(fin,data,lambda : client.recv(CWM.MaxSize()),CWM.MaxSize(),prnt_func=lambda pld: print(f"(WS) {path} : {str(datetime.now())} Received Message (Payload : {pld}) {address}"))
                 self.handleTraceback(lambda x : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=self.send),"onMessage")                                
@@ -377,9 +376,13 @@ class Server(RoutedWebsocketServer):
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
-        # client.settimeout(5) # 5 sec wait time
-        request : bytes = client.recv(1024)
-        # client.settimeout(None) # clear the timeout
+        client.settimeout(5) # 5 sec wait time
+        try:
+            request : bytes = client.recv(1024)
+        except:
+            return client.close()
+            
+        client.settimeout(None) # clear the timeout
 
         if len(request) == 0:
             return client.close()
@@ -389,7 +392,7 @@ class Server(RoutedWebsocketServer):
             headers,body = spl
             headers = ParseHeaders(headers)
         except:
-            print(f"[ERROR] : {str(datetime.now())} | Invalid Requests From client ({address})")
+            print(f"[ERROR] : {str(datetime.now())} | Invalid Request From client ({address})")
             return client.close()
 
         #WebSocket Connection
