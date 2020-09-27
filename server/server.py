@@ -1,6 +1,7 @@
 # < - Package Imports
 from ..client_side import status
-from ..Parsing.http import ParseHeaders,ParseHTTP,AwaitFullBody,replace
+from ..Parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody\
+,replace,AppendHeaders,AppendRawHeaders)
 from ..Parsing import websocket
 
 # < - Server Hadnling
@@ -35,7 +36,7 @@ HTTP_PORT : int = 80
 STANDAR_404_PAGE : callable = lambda page : "<b>Page {} Was not Found (404 Status Code)</b>".format(page)
 STANDAR_500_PAGE : str = "<h1>500 Internal Server Error</h1>"
 CORS : callable = lambda origin : 'Access-Control-Allow-Origin : {}\r\n'.format(origin)
-
+X_FRAME : callable = lambda value : f'X-Frame-Options: {value}\r\n'
 
 class HttpServer:
     """
@@ -62,6 +63,7 @@ class HttpServer:
         self.receive_size = receive_size
         assert type(CORS_DOMAINS) == list
         self.cors = self.CORS_DOMAINS = CORS_DOMAINS
+        self.xframe =  X_FRAME('SAMEORIGIN')
         
 
         if '*' in self.cors: #Everything is allowed
@@ -80,35 +82,45 @@ class HttpServer:
 
         del isHttp
 
+    def HandleCORS(self,msg,headers):
+        isAllowed = headers[0].get("Origin")
+        if isAllowed:
+            origin = isAllowed
+            msg = AppendRawHeaders(msg,b"\r\n" + self.cors(origin).encode())
+        msg = AppendRawHeaders(msg,b"\r\n" + self.xframe.encode())
+        return msg
+
+    def ParseBody(self,body,client,headers):
+        client.settimeout(4)
+        body = AwaitFullBody(headers,body,lambda : client.recv(self.receive_size))
+        client.settimeout(None)
+        headers = headers,body
+        return headers
+
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict,**kwargs) -> None:
-        #Loop thorugh each URL searching for the TARGET
-        hasBodyParsed : bool = type(headers) in (tuple,list)
-        target = headers[0]["method"].split(" ")[1] if hasBodyParsed else headers["method"].split(" ")[1]
+        hasBodyParsed : bool = type(headers) in (tuple,list) #See if there is form data
+        target = headers[0]["method"].split(" ")[1] if hasBodyParsed else headers["method"].split(" ")[1] #target route
+        
+        # Loop through the urls and try to find it
         for url in URLS:
             match = re.fullmatch(url,target) #full regex match
-            if match: #linear search is the only way to go with regex
+            if match: 
                 try:
                     # Only if the path is found wait for the full fucking request
                     if not hasBodyParsed:
-                        body = kwargs.get('body')
-                        client.settimeout(4)
-                        body = AwaitFullBody(headers,body,lambda : client.recv(self.receive_size))
-                        client.settimeout(None)
-                        headers = headers,body
+                        headers = self.ParseBody(kwargs.get('body'),client,headers) # Await for additional messages
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
-                    msg : str = URLS.get(url).__call__(headers)
-                    isAllowed = headers[0].get("Origin")
-                    if isAllowed:
-                        origin = isAllowed
-                        indx = msg.index(b"\r\n")+2;msg = replace(indx,msg,self.cors(origin) )
-                    if isinstance(msg,tuple): #Binary? file
+
+                    msg : str = URLS.get(url).__call__(headers) #Call the view
+                    if isinstance(msg,tuple): #Binary file
                         with open(msg[1],'rb+') as file:
-                            client.send(msg[0](getsize(msg[1]))) #Send the HTTP Headers with the file lenght
+                            initial = self.HandleCORS(msg[0](getsize(msg[1])),headers) #Send the HTTP Headers with the file lenght
+                            client.send(initial)
                             for chunk in lazy_read(file):
                                 client.send(chunk) #Lazy-send the chunks
                     else:
-                        client.send(msg)
+                        client.send(self.HandleCORS(msg,headers))
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     client.send(status.Http500().__call__(self.page500))

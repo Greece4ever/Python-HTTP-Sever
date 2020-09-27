@@ -5,6 +5,7 @@ from ..client_side import status
 import pprint,os,threading;import os
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
+STATIC_FILES_DIR = r'C:\Users\Spartakos\Desktop\server\static'
 
 class Home(View):
     # @cache.CacheDecorator
@@ -32,7 +33,12 @@ class RView(View):
 
 class Imgres(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(os.path.join(r'C:\Users\Spartakos\Desktop','ΑΣΘΕΝΙΔΗΣ ΛΕΩΝΙΔΑΣ.PDF'),200,display_in_browser=True)
+        num = [item for item in request[0]['uri'].split("/") if item.strip() != ''][-1]
+        files = os.listdir(r'C:\Users\Spartakos\Desktop\server\static')
+        if int(num) >= len(files):
+            return status.HttpBinary().__call__(os.path.join(r'C:\Users\Spartakos\Desktop','Capture.JPG'),200,display_in_browser=True)
+        return status.HttpBinary().__call__(os.path.join(STATIC_FILES_DIR,files[int(num)]),200,display_in_browser=True)
+        # return status.HttpBinary().__call__(os.path.join(r'C:\Users\Spartakos\Desktop','ΑΣΘΕΝΙΔΗΣ ΛΕΩΝΙΔΑΣ.PDF'),200,display_in_browser=True)
 
 class SampleView(View):
     def GET(self,request):
@@ -52,7 +58,13 @@ class PostView(View):
         return status.Http200().__call__(template(r"C:\Users\Spartakos\Desktop\server\tests\test.html",usePythonScript=True))
 
     def POST(self,request):
-        pprint.pprint(request)
+        body = request[-1]
+        for item in body:
+            if 'filename' in item:
+                with open(os.path.join(r'C:\Users\Spartakos\Desktop\server\static',item['filename']),'wb+') as f:
+                    for line in iter(item['data'].readlines()):
+                        f.write(line)
+
         return status.Http200().__call__("""<span style='color : red' >if</span><span>(<span>x</span>==<span style='color : blue'>1</span>)""")
 
 class RedirectView(View):
@@ -143,7 +155,7 @@ PATHS = {
 }
 
 CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']
-server = Server(socket_paths=PATHS,http_paths=URLS,CORS_DOMAINS=CORS_DOMAINS)
+server = Server(socket_paths=PATHS,http_paths=URLS,CORS_DOMAINS=[None])
 # full_server.start()
 # server = HttpServer(URLS=URLS,port=8000,CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com'])
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)

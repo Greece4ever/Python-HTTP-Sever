@@ -76,7 +76,6 @@ class HttpBinary(Exception):
                     f"HTTP/1.1 {code} {status}\r\n".encode()
                     + ctype
                     +"Content-Length : {}\r\n".format(size).encode()
-                    # +"Content-Disposition: inline" if display_in_browser else "Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
                     +"Content-Disposition : attachment; filename=\"{}\"\r\n".format(filename).encode()
                     +b"\r\n"
             ),path)

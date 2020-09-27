@@ -4,6 +4,21 @@ from math import ceil;import io
 def replace(index : int,target : str,rplc : str) -> str:
     return target[:index] + str(rplc).encode() + target[index:]
 
+def bytereplaces(index,target,rplc):
+    t1 = target[:index]
+    t2 = target[index:]
+    return(t1 + rplc + t2)
+
+def AppendHeaders(response : Union[bytes,str],headers : dict):
+    for item in headers:
+        expression = f'{item} : {headers[item]}\r\n'.encode()
+        indx = response.index(b'\r\n')+2
+        response = bytereplaces(indx,response,expression)
+    return response
+
+def AppendRawHeaders(response,data):
+    return bytereplaces(response.index(b'\r\n'),response,data[:len(data)-2])
+
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
         expression = expression.decode()
@@ -13,6 +28,9 @@ def ParseHeaders(headers : bytes) -> dict:
     y = headers.split(b'\r\n')
     TMP_DICT = {}
     TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
+    method,uri = TMP_DICT['method'].split(" ",1)
+    TMP_DICT['type'] = method
+    TMP_DICT['uri'] = uri
     for header in y:
         spl : str = header.split(b':',1)
         key = spl[0].strip().decode()
