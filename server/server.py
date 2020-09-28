@@ -398,8 +398,6 @@ class Server(RoutedWebsocketServer):
         if len(request) == 0:
             return client.close()
         
-        print(request.decode())
-
         spl = request.split(b'\r\n\r\n',1)
         try:
             headers,body = spl
