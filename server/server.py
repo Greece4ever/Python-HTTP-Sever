@@ -3,6 +3,7 @@ from ..client_side import status
 from ..Parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody\
 ,replace,AppendHeaders,AppendRawHeaders)
 from ..Parsing import websocket
+from .routes import SocketView
 
 # < - Server Hadnling
 import socket
@@ -56,7 +57,10 @@ class HttpServer:
         print(f"Initiliazing local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
         self.connection : socket.socket = socket.socket()
-        self.connection.bind(self.adress)
+        try:
+            self.connection.bind(self.adress)
+        except:
+            raise RuntimeError(f"Could not bind.Something else is running on {self.adress[0]}:{self.adress[1]}.")
         self.urls : dict = kwargs.get("URLS")
         self.page404 : callable = page404 
         self.page500 : str = page500
@@ -116,8 +120,11 @@ class HttpServer:
                         with open(msg[1],'rb+') as file:
                             initial = self.HandleCORS(msg[0](getsize(msg[1])),headers) #Send the HTTP Headers with the file lenght
                             client.send(initial)
-                            for chunk in lazy_read(file):
-                                client.send(chunk) #Lazy-send the chunks
+                            try:
+                                for chunk in lazy_read(file):
+                                    client.send(chunk) #Lazy-send the chunks
+                            except:
+                                return client.close() # Any error due to exit
                     else:
                         client.send(self.HandleCORS(msg,headers))
                 except Exception as f:
@@ -236,8 +243,9 @@ class WebsocketServer(HttpServer):
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
         else:
             CLS = list_of_clients
-            indx = CLS.index(client)
-            CLS.pop(indx)
+            CLS.pop(client) 
+            # indx = CLS.index(client)
+            # CLS.pop(indx)
             client.close()
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
 
@@ -248,10 +256,15 @@ class WebsocketServer(HttpServer):
     def handleWebSocket(self,client,address,**kwargs):
         #TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
         client.settimeout(4)
-        data = client.recv(1024)
+        
+        try:
+            data = client.recv(1024)
+        except:
+            return client.close()
+
         client.settimeout(None)
         data = data.split(b'\r\n\r\n',1)
-        headers = ParseHeaders(data[0])
+        headers = ParseHeaders(data[0]) #request body is reduntant
 
 
         EnsureSocket(headers,(client,address))
@@ -308,8 +321,11 @@ class RoutedWebsocketServer(WebsocketServer):
     def __init__(self,paths : dict,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 4096,**kwargs):
         self.global_max_size = global_max_size
         self.routes : dict = {}
+        err_msg = f'Dictionary Value specifying view must inherit from {SocketView}.'
         for item in paths:
-            self.routes[item] =  {"clients" : [],"view" : paths[item]}
+            assert type(item) == str, "Dictionary Key specifying path must be {} not {}".format(str,type(item))
+            assert issubclass(type(paths[item]),SocketView),err_msg 
+            self.routes[item] =  {"clients" : {},"view" : paths[item]}
         super(RoutedWebsocketServer,self).__init__(host,port,**kwargs)
         del self.clients,self.max_size
 
@@ -321,7 +337,10 @@ class RoutedWebsocketServer(WebsocketServer):
 
         if not kwargs.get('dont_wait'):
             client.settimeout(5)
-            data = client.recv(self.global_max_size)
+            try:
+                data = client.recv(self.global_max_size)
+            except:
+                return client.close()
             client.settimeout(None)
             headers : dict = ParseHeaders(data.split(b'\r\n\r\n')[0]) # Request body is redundant
         else:
@@ -348,7 +367,9 @@ class RoutedWebsocketServer(WebsocketServer):
         print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
 
         #Add them to the clients-list (current route)
-        self.routes[path]['clients'].append(client)
+        # self.routes[path]['clients'].append(client)
+        self.routes[path]['clients'][client] = hndl # hndl returns state
+
         while True:
             try:
                 data = client.recv(CWM.MaxSize())

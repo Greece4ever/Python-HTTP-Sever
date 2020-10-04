@@ -158,8 +158,10 @@ def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable) -> 
     length : int = int(length)
     in_body_len = len(initial_body)
     if (in_body_len - length) < 0:
-        wait_times = ceil((length - in_body_len) / 1024)
+        wait_times = ceil((length - in_body_len) / 1024) # TODO
+        print("wait {}".format)
         for _ in range(wait_times):
+            print("{}".format(_))
             response = await_data()
             initial_body += response
     return ParseBody(initial_body,code=code,boundary=boundary)

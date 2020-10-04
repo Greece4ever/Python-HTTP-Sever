@@ -80,7 +80,7 @@ class PostView(View):
 class RedirectView(View):
     def GET(self,request):
         return status.Redirect().__call__('/poutsa')
-
+    
 S_PATH = r'C:\Users\Spartakos\Desktop\server\tests\socket.html'
 
 class WSView(View):
@@ -89,6 +89,7 @@ class WSView(View):
 
 URLS : dict = {
     r"^(\/)?" : Home(),
+    r"/accounts/register(\/)?" : Home(),
     r"(\/)?nova(\/)?\?(.*)" : WSView(),
     r"(\/)?peos(\/)?\?(.*)" : WSView(),
     r"(\/)?sql(\/)?\?(.*)" : WSView(),
@@ -156,6 +157,7 @@ class SimpleWebSocketServer(WebsocketServer):
         for client in self.clients:
             self.send(client,"{} has left!".format(self.get_client_ip(client)))
 
+
 PATHS = {
     '/peos' : CustomRoute(),
     '/sql' : CustomRoute(),
@@ -164,7 +166,7 @@ PATHS = {
 }
 
 CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']
-server = Server(socket_paths=PATHS,http_paths=URLS,CORS_DOMAINS=[None])
+server = Server(host='127.0.0.1',socket_paths=PATHS,http_paths=URLS,CORS_DOMAINS=[None])
 # full_server.start()
 # server = HttpServer(URLS=URLS,port=8000,CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com'])
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
