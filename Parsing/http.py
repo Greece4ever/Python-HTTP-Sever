@@ -1,17 +1,38 @@
-from urllib.request import unquote;from typing import Union
+from urllib.request import unquote
+from typing import Union
 from math import ceil
+import io,json
+
+def replace(index : int,target : str,rplc : str) -> str:
+    return target[:index] + str(rplc).encode() + target[index:]
+
+def bytereplaces(index,target,rplc):
+    t1 = target[:index]
+    t2 = target[index:]
+    return(t1 + rplc + t2)
+
+def AppendHeaders(response : Union[bytes,str],headers : dict):
+    for item in headers:
+        expression = f'{item} : {headers[item]}\r\n'.encode()
+        indx = response.index(b'\r\n')+2
+        response = bytereplaces(indx,response,expression)
+    return response
+
+def AppendRawHeaders(response,data):
+    return bytereplaces(response.index(b'\r\n'),response,data[:len(data)-2])
 
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
         expression = expression.decode()
-    # expression = expression.replace('"','').replace("'",'')
     return unquote(expression.replace("+",' ')).strip()
-
 
 def ParseHeaders(headers : bytes) -> dict:
     y = headers.split(b'\r\n')
     TMP_DICT = {}
     TMP_DICT['method'] = unquote(y.pop(0).replace(b"HTTP/1.1",b'').strip().decode())
+    method,uri = TMP_DICT['method'].split(" ",1)
+    TMP_DICT['type'] = method
+    TMP_DICT['uri'] = uri
     for header in y:
         spl : str = header.split(b':',1)
         key = spl[0].strip().decode()
@@ -22,6 +43,14 @@ def ParseHeaders(headers : bytes) -> dict:
         TMP_DICT[key] = value
     return TMP_DICT
 
+def ParseFileContent(i):
+    if b':' in i:
+        spl : list = i.split(b':')
+        return spl[0].strip(),spl[1].strip()
+
+    elif b'=' in i:
+        spl : list = i.split(b'=')
+        return  spl[0].strip(),spl[1].strip()
 
 def ParseBody(body : bytes,code : int,**kwargs):
     if code == 0:
@@ -32,38 +61,60 @@ def ParseBody(body : bytes,code : int,**kwargs):
             key : str = decodeURI(key.decode())
             value : str = decodeURI(value.decode())
             FORM_DATA[key] = value
-    else:
+    elif code == 1:
         FORM_DATA : list = []
         split = kwargs.get('boundary')
         f_data = body.split(b'--' + split)
+        f_data.pop(-1)
         for item in f_data:
             if len(item) < 2:
                 continue
+
             attrs = {}
             itm_prs : list = item.split(b'\r\n\r\n',1)
             bl = itm_prs[0].split(b';')
             for i in bl:
-                if b':' in i:
-                    spl : list = i.split(b':')
-                elif b'=' in i:
-                    spl : list = i.split(b'=')
-                attrs[spl[0].strip()] = spl[1].strip()
+                if b'\r\n' in i:
+                    i = i.split(b'\r\n')
+                    for i_s in i:
+                        _ =  ParseFileContent(i_s)
+                        if _ is None:
+                            continue
+                        k,v = [decodeURI(attr.replace(b'"',b'').replace(b"'",b'')) for attr in _]
+                        attrs[k] = v
+                    continue
                 
-            attrs['data'] = itm_prs[-1]
+                _ = ParseFileContent(i)
+                if _ is None:
+                    continue
+                k,v = [decodeURI(attr.replace(b'"',b'').replace(b"'",b'')) for attr in _]
+                attrs[k] = v
+            
+            if 'filename' in attrs:
+                attrs['data'] = io.BytesIO(itm_prs[-1])
+            else:
+                attrs['data'] = io.StringIO(str(itm_prs[-1]))
+
             FORM_DATA.append(attrs)
+    elif code == 2:
+        data = json.loads(body)
+        return data
 
     return FORM_DATA
 
-def ParseHTTP(data : bytes,await_data : callable):
+def ParseHTTP(data : bytes,await_data : callable,**kwargs):
     headers : bytes
     body : bytes
-    # print(data.split(b'\r\n\r\n'))
     headers,body = data.split(b'\r\n\r\n',1) # Headers and body
     headers = ParseHeaders(headers)
 
     if 'Content-Length' in headers:
-        lenght : int = int(headers['Content-Length'])
-        if lenght > 1024:
+        lenght : int = int(headers['Content-Length']) # TODO <IS IT REALLY WORTH CATCHING THE EXCEPTION>
+        
+        if(lenght > kwargs.get("max_size")): # THE CLIENT WANTS TO SEND A SHIT LOAD OF DATA BLOCK HIM
+            return 666
+
+        if len(body) < lenght:
             for _ in range(ceil(lenght / 1024)):
                 response = await_data()
                 body += response
@@ -71,20 +122,54 @@ def ParseHTTP(data : bytes,await_data : callable):
     if 'Content-Type' in headers:
         c_type = headers['Content-Type']
         if type(c_type) == list:
+            if('json' in c_type[0]):
+                return headers,ParseBody(body,2)
             for value in c_type:
                 if 'boundary' in value:
                     boundary : list =  value.split('=')[-1]
                     response : tuple =  headers,ParseBody(body,1,boundary=boundary.encode())
                     return response
-        elif 'application/x-www-form-urlencoded':
-            return headers,ParseBody(body,0)
+        elif c_type == 'application/x-www-form-urlencoded':
+            return headers
 
     return headers,()
 
+def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable,**kwargs) -> dict:
+    ctype,length = [headers.get('Content-Type'),headers.get('Content-Length')] #if they do not provide content-length they may go fuck themselves
+    length : int = int(length)
+
+
+    if None in (ctype,length):
+        return ''
+    code : int
+    
+    if(length > kwargs.get("max_size")):
+        return 666
+
+    boundary = None    
+    if ctype == 'application/x-www-form-urlencoded':
+        code = 0
+    else:
+        if type(ctype) == list:
+            if 'json' in  ctype[0]:
+                code = 2
+            elif 'x-www-form-urlencoded' in ctype[0]:
+                code = 0
+            else:
+                code = 1
+                for value in ctype:
+                    boundary : Exception = KeyError
+                    for value in ctype:
+                        if 'boundary' in value:
+                            boundary : bytes =  value.split('=')[-1].encode()
+
+    in_body_len = len(initial_body)
+    if (in_body_len - length) < 0:
+        wait_times = ceil((length - in_body_len) / 1024) # TODO
+        for _ in range(wait_times):
+            response = await_data()
+            initial_body += response
+    return ParseBody(initial_body,code=code,boundary=boundary)
 
 if __name__ == "__main__":
-    import pprint
-    s1 = b'GET /images/1 HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 OPR/71.0.3770.175\r\nAccept-Encoding: identity;q=1, *;q=0\r\nAccept: */*\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: no-cors\r\nSec-Fetch-Dest: video\r\nReferer: http://localhost/post\r\nAccept-Language: en-US,en;q=0.9\r\nRange: bytes=0-\r\n\r\n'    
-    s2 = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 235\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundary0o8bArs2PkoBamqj\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 OPR/71.0.3770.175\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundary0o8bArs2PkoBamqj\r\nContent-Disposition: form-data; name="ena"\r\n\r\n321321\r\n------WebKitFormBoundary0o8bArs2PkoBamqj\r\nContent-Disposition: form-data; name="dio"\r\n\r\n321\r\n\r\n------WebKitFormBoundary0o8bArs2PkoBamqj--\r\n'
-    s3 = b'POST /post HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nContent-Length: 304\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nOrigin: http://localhost\r\nContent-Type: multipart/form-data; boundary=----WebKitFormBoundaryh3DxaqIJ7GjcSgPY\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 OPR/71.0.3770.175\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nReferer: http://localhost/post\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\n\r\n------WebKitFormBoundaryh3DxaqIJ7GjcSgPY\r\nContent-Disposition: form-data; name="ena"\r\n\r\n<script>hello_world</script>\r\n------WebKitFormBoundaryh3DxaqIJ7GjcSgPY\r\nContent-Disposition: form-data; name="dio"\r\n\r\n>>> a = "hi"\r\n>>> bytes(a, encoding=\'utf8\')\r\nb\'hi\'\r\n\r\n------WebKitFormBoundary0o8bArs2PkoBamqj--'
-    pprint.pprint(ParseHTTP(s2,''))
+    pass
