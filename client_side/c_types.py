@@ -1,6 +1,7 @@
 content_types = {
     ".3dm":"x-world/x-3dmf",
     ".3dmf":"x-world/x-3dmf",
+    ".3gp" : "video/mpeg",
     ".a":"application/octet-stream",
     ".aab":"application/x-authorware-bin",
     ".aam":"application/x-authorware-map",
@@ -197,6 +198,7 @@ content_types = {
     ".mov":"video/quicktime",
     ".movie":"video/x-sgi-movie",
     ".mp2":"video/x-mpeq2a",
+    ".mp4" : "video/mp4",
     ".mp3":"video/x-mpeg",
     ".mpa":"video/mpeg",
     ".mpc":"application/x-project",

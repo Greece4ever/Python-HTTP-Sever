@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <button id='id'>
+        Send
+    </button>
+    <iframe style="resize: both;" src="http://localhost:8000/nova?nova"></iframe>
+</body>
+<script defer src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script defer>
+    console.log($.ajax)
+    const btn = document.getElementById("id");
+    function fetch() {
+        return axios.get("http://localhost:8000/")
+    }
+    
+    btn.addEventListener("click",async () => {
+        fetch().then(response => {
+            console.log(response)
+        })
+    })
+
+</script>
+</html>
