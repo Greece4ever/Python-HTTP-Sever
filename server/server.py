@@ -266,8 +266,6 @@ class WebsocketServer(HttpServer):
         else:
             CLS = list_of_clients
             CLS.pop(client) 
-            # indx = CLS.index(client)
-            # CLS.pop(indx)
             client.close()
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
 
@@ -276,7 +274,7 @@ class WebsocketServer(HttpServer):
         return client.send(status.Http101().__call__(key))
 
     def handleWebSocket(self,client,address,**kwargs):
-        #TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
+        # TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
         client.settimeout(4)
         
         try:
@@ -286,7 +284,7 @@ class WebsocketServer(HttpServer):
 
         client.settimeout(None)
         data = data.split(b'\r\n\r\n',1)
-        headers = ParseHeaders(data[0]) #request body is reduntant
+        headers = ParseHeaders(data[0]) # request body is reduntant
 
 
         EnsureSocket(headers,(client,address))
@@ -296,11 +294,11 @@ class WebsocketServer(HttpServer):
             print(f"(WS) : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
             return client.close() #Close if there was an Exception or return None
 
-        #Increment the number of clients and print 
+        # Increment the number of clients and print 
         num_client : int = self.clients.__len__()+1
         print(f"(WS) : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
 
-        #Add them to the clients-list (current route)
+        # Add them to the clients-list (current route)
         self.clients.append(client)
 
         while True:
@@ -371,13 +369,13 @@ class RoutedWebsocketServer(WebsocketServer):
 
         EnsureSocket(headers,(client,address))
 
-        #Check if the path is found
+        # Check if the path is found
         path : str = headers['method'].split(" ",1)[1]
         if not path in self.routes:
             print(f"(WS) : {str(datetime.now())} Connection Not Found \"{path}\" {address}")
             return client.close()
 
-        #Get The View and call the onConnect function
+        # Get The View and call the onConnect function
         CWM = self.routes[path]["view"]
         hndl = self.handleTraceback(lambda _ : CWM.onConnect(client=client,path_info=self.routes[path],send_function=self.send,headers=headers,key=headers['Sec-WebSocket-Key']),"onConnect",path)  
         
@@ -385,11 +383,11 @@ class RoutedWebsocketServer(WebsocketServer):
             print(f"(WS) {path} : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
             return client.close() #Close if there was an Exception or return None
         
-        #Increment the number of clients and print 
+        # Increment the number of clients and print 
         num_client : int = self.routes[path]['clients'].__len__()+1
         print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
 
-        #Add them to the clients-list (current route)
+        # Add them to the clients-list (current route)
         # self.routes[path]['clients'].append(client)
         self.routes[path]['clients'][client] = hndl # hndl returns state
 
@@ -401,13 +399,13 @@ class RoutedWebsocketServer(WebsocketServer):
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
-            if len(data) == 0 or  data[0] == 136: #136 exit code
+            if len(data) == 0 or  data[0] == 136: # 136 exit code
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
                 self.handleDisconnect(client,self.routes[path]['clients'])
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
-            fin = data[1] & 127 #Decode the length of the message
+            fin = data[1] & 127 # Decode the length of the message
             if fin in (126,127):
                 decoded = DataWait(fin,data,lambda : client.recv(CWM.MaxSize()),CWM.MaxSize(),prnt_func=lambda pld: print(f"(WS) {path} : {str(datetime.now())} Received Message (Payload : {pld}) {address}"))
                 self.handleTraceback(lambda x : CWM.onMessage(data=decoded,sender_client=client,path_info=self.routes[path],send_function=self.send),"onMessage")                                
@@ -427,7 +425,7 @@ class Server(RoutedWebsocketServer):
     """
     
     def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,CORS_DOMAINS : list = [],**kwargs) -> None:
-        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1,CORS_DOMAINS=CORS_DOMAINS)
+        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1,CORS_DOMAINS=CORS_DOMAINS,**kwargs)
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 

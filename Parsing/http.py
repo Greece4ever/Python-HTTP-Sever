@@ -136,13 +136,12 @@ def ParseHTTP(data : bytes,await_data : callable,**kwargs):
 
 def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable,**kwargs) -> dict:
     ctype,length = [headers.get('Content-Type'),headers.get('Content-Length')] #if they do not provide content-length they may go fuck themselves
-    length : int = int(length)
-
 
     if None in (ctype,length):
         return ''
     code : int
     
+    length : int = int(length)
     if(length > kwargs.get("max_size")):
         return 666
 

@@ -59,7 +59,12 @@ class View:
         return status.Http405().__call__(UI405("PATCH"))
 
     def __call__(self,request):
-        return self.cases.get(request['method'].split(" ")[0].upper())(request)
+        method = request[0]['method'].split(" ")[0].upper()
+        try:
+            return self.cases.get(method)(request)
+        except:
+            print("[ERROR] Request method not found : {}".format(method))
+            return status.Http405().__call__("Method {} not allowed.".format(method))
 
 class SocketView:
     """
