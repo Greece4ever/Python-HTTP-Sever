@@ -62,6 +62,8 @@ class HttpServer:
         except:
             raise RuntimeError(f"Could not bind.Something else is running on {self.adress[0]}:{self.adress[1]}.")
         self.urls : dict = kwargs.get("URLS")
+		if self.urls is None:
+			raise Exception("No URL schemes were provided")
         self.page404 : callable = page404 
         self.page500 : str = page500
         self.receive_size = receive_size
