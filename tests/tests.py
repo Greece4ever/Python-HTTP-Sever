@@ -5,7 +5,11 @@ from ..client_side import status
 import pprint,os,threading;import os
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
-STATIC_FILES_DIR : str = r'C:\Users\Spartakos\Desktop\server\static'
+STATIC_FILES_DIR : str = os.path.join(
+    os.getcwd(),os.listdir()[0],'tests'
+)
+
+
 
 class Home(View):
     # @cache.CacheDecorator
@@ -14,7 +18,7 @@ class Home(View):
 
 class JsonView(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(r'C:\Users\Spartakos\Desktop\server\tests\json.html',200,display_in_browser=True)
+        return status.HttpBinary().__call__(os.path.join(STATIC_FILES_DIR,'json.html'),200,display_in_browser=True)
 
     def POST(self,request):
         pprint.pprint(request[-1])
@@ -25,11 +29,11 @@ class JsonView(View):
 
 class Chat(View):
     def GET(self,request):
-        return status.HttpBinary().__call__(r'C:\Users\Spartakos\Desktop\server\tests\socket.html',200,display_in_browser=True)
+        return status.HttpBinary().__call__(os.path.join(STATIC_FILES_DIR,'socket.html'),200,display_in_browser=True)
 
 class Chat2(View):
     def GET(self,request):
-        return status.Http200().__call__(template(os.path.join(os.getcwd(),"test.html"),usePythonScript=True))
+        return status.Http200().__call__(template(os.path.join(STATIC_FILES_DIR,'socket.html'),usePythonScript=True))
 
 class RView(View):
     def GET(self,request):
@@ -85,7 +89,7 @@ S_PATH = r'C:\Users\Spartakos\Desktop\server\tests\socket.html'
 
 class WSView(View):
     def GET(self,request):
-        return status.Http200().__call__(template(S_PATH))
+        return status.Http200().__call__(template(os.path.join(STATIC_FILES_DIR,'socket.html')))
 
 URLS : dict = {
     r"^(\/)?" : Home(),
