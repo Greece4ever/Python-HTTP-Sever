@@ -11,7 +11,8 @@ def bytereplaces(index,target,rplc):
     t2 = target[index:]
     return(t1 + rplc + t2)
 
-def AppendHeaders(response : Union[bytes,str],headers : dict):
+def AppendHeaders(response_ : Union[bytes,str],headers : dict):
+    response = response_
     for item in headers:
         expression = f'{item} : {headers[item]}\r\n'.encode()
         indx = response.index(b'\r\n')+2
@@ -69,7 +70,6 @@ def ParseBody(body : bytes,code : int,**kwargs):
         for item in f_data:
             if len(item) < 2:
                 continue
-
             attrs = {}
             itm_prs : list = item.split(b'\r\n\r\n',1)
             bl = itm_prs[0].split(b';')
@@ -93,7 +93,8 @@ def ParseBody(body : bytes,code : int,**kwargs):
             if 'filename' in attrs:
                 attrs['data'] = io.BytesIO(itm_prs[-1])
             else:
-                attrs['data'] = io.StringIO(str(itm_prs[-1]))
+
+                attrs['data'] = io.StringIO(itm_prs[-1][0:len(itm_prs[-1])-2].decode())
             
              
             if 'name' in attrs:
