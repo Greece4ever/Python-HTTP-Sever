@@ -52,7 +52,7 @@ class HttpServer:
         param: page505 : str = STANDAR_500_PAGE 
     """
 
-    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,port : int = HTTP_PORT,max_receive_size : int = 2 * 10e+05 ,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,CORS_DOMAINS : list = [],**kwargs):
+    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,port : int = HTTP_PORT,max_receive_size : int = 2 * 10e+05 ,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,CORS_DOMAINS : list = [],XFRAME_DOMAINS : list = [],**kwargs):
         isHttp = kwargs.get('http')
         print(f"Initiliazing local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
@@ -70,10 +70,12 @@ class HttpServer:
         self.page404 : callable = page404 
         self.page500 : str = page500
         self.receive_size = receive_size
-        assert type(CORS_DOMAINS) == list
+        assert type(CORS_DOMAINS) == list, "CORS Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
+        assert type(XFRAME_DOMAINS) == list,"X-FRAME Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
         self.cors = self.CORS_DOMAINS = CORS_DOMAINS
         self.max_receive_size = max_receive_size
         self.xframe =  X_FRAME('SAMEORIGIN')
+        self.X_FRAME_DOMAINS = XFRAME_DOMAINS
 
         if '*' in self.cors: #Everything is allowed
             self.cors = lambda _: CORS('*')
@@ -93,11 +95,20 @@ class HttpServer:
 
     def HandleCORS(self,msg,headers):
         isAllowed = headers[0].get("Origin")
+        q_msg = msg
         if isAllowed:
             origin = isAllowed
-            msg = AppendRawHeaders(msg,b"\r\n" + self.cors(origin).encode())
-        msg = AppendRawHeaders(msg,b"\r\n" + self.xframe.encode())
-        return msg
+            q_msg = AppendRawHeaders(q_msg,b"\r\n" + self.cors(origin).encode())
+        if 'Referer' in headers[0]:
+            try:
+                _ = headers[0]['Referer'].split("/")[0:3]
+                referer : list = "/".join(_)
+                if(referer in self.X_FRAME_DOMAINS):
+                    return q_msg
+            except:
+                ...        
+        q_msg = AppendRawHeaders(q_msg,b"\r\n" + self.xframe.encode())
+        return q_msg
 
     def ParseBody(self,body,client,headers):
         client.settimeout(4)
@@ -131,7 +142,7 @@ class HttpServer:
                             return client.close()
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
-                    msg : str = URLS.get(url).__call__(headers) #Call the view
+                    msg : str = URLS.get(url).__call__(headers) # <---- Here you fucked UP.
                     assert type(msg) in (tuple,bytes),"Response must only return ({},{}) by calling __call__ on the response, you returned {}.".format(bytes,tuple,type(msg))
                     if isinstance(msg,tuple): #Binary file
                         with open(msg[1],'rb+') as file:
@@ -146,11 +157,15 @@ class HttpServer:
                         client.send(self.HandleCORS(msg,headers))
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
-                    client.send(status.Http500().__call__(self.page500))
+                    try:
+                        msg = self.HandleCORS(status.Http500().__call__(self.page500),headers)
+                        client.send(msg)
+                    except Exception as f:
+                        print_exception(type(f),f,f.__traceback__)
                 finally:
                     return client.close()
         #Page was not found
-        client.send(status.Http404().__call__(self.page404(target)))
+        client.send(self.HandleCORS(status.Http404().__call__(self.page404(target)),(headers,'')))
         return client.close()
 
     def AwaitRequest(self):

@@ -60,11 +60,11 @@ class View:
 
     def __call__(self,request):
         method = request[0]['method'].split(" ")[0].upper()
-        try:
-            return self.cases.get(method)(request)
-        except:
+        view = self.cases.get(method)
+        if(view is None):
             print("[ERROR] Request method not found : {}".format(method))
             return status.Http405().__call__("Method {} not allowed.".format(method))
+        return self.cases.get(method)(request)
 
 class SocketView:
     """
