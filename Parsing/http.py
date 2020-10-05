@@ -62,7 +62,7 @@ def ParseBody(body : bytes,code : int,**kwargs):
             value : str = decodeURI(value.decode())
             FORM_DATA[key] = value
     elif code == 1:
-        FORM_DATA : list = []
+        FORM_DATA : list = {}
         split = kwargs.get('boundary')
         f_data = body.split(b'--' + split)
         f_data.pop(-1)
@@ -94,8 +94,16 @@ def ParseBody(body : bytes,code : int,**kwargs):
                 attrs['data'] = io.BytesIO(itm_prs[-1])
             else:
                 attrs['data'] = io.StringIO(str(itm_prs[-1]))
+            
+             
+            if 'name' in attrs:
+                FORM_DATA[attrs.pop('name')] = attrs
+            else:
+                if not 'default' in FORM_DATA:
+                    FORM_DATA['default'] = []
+                FORM_DATA['default'].append(attrs)
 
-            FORM_DATA.append(attrs)
+            # FORM_DATA.append({attrs['name'] : attrs})
     elif code == 2:
         data = json.loads(body)
         return data
