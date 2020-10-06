@@ -154,7 +154,7 @@ class HttpServer:
                             except:
                                 return client.close() # Any error due to exit
                     else:
-                        client.send(self.HandleCORS(msg,headers))
+                        client.send(self.HandleCORS(msg,headers))                
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     try:
@@ -281,8 +281,8 @@ class WebsocketServer(HttpServer):
         else:
             CLS = list_of_clients
             CLS.pop(client) 
-            client.close()
-            return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
+            return client.close()
+            # return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
 
     def accept(self,client : socket.socket,**kwargs) -> None:
         key = kwargs.get('key')
@@ -302,7 +302,7 @@ class WebsocketServer(HttpServer):
         headers = ParseHeaders(data[0]) # request body is reduntant
 
 
-        EnsureSocket(headers,(client,address))
+        EnsureSocket(headers,(client,address)) # Ensure that the connection is WS
         hndl = self.handleTraceback(lambda x : self.onConnect(client,adress=address,send_function=self.send,key=headers['Sec-WebSocket-Key']),"onConnect")                
 
         if not hndl:
@@ -360,7 +360,9 @@ class RoutedWebsocketServer(WebsocketServer):
         for item in paths:
             assert type(item) == str, "Dictionary Key specifying path must be {} not {}".format(str,type(item))
             assert issubclass(type(paths[item]),SocketView),err_msg 
-            self.routes[item] =  {"clients" : {},"view" : paths[item]}
+            paths[item].set_send_function(self.send)
+            # self.routes[item] =  {"clients" : {},"view" : paths[item]}
+            self.routes[item] =  {"view" : paths[item]}
         kwargs['no_urls'] = True
         super(RoutedWebsocketServer,self).__init__(host,port,**kwargs)
         del self.clients,self.max_size
@@ -392,31 +394,35 @@ class RoutedWebsocketServer(WebsocketServer):
 
         # Get The View and call the onConnect function
         CWM = self.routes[path]["view"]
+        CWM.keys[client] = headers['Sec-WebSocket-Key'] # Set the key so that it can just call accept from the view
         hndl = self.handleTraceback(lambda _ : CWM.onConnect(client=client,path_info=self.routes[path],send_function=self.send,headers=headers,key=headers['Sec-WebSocket-Key']),"onConnect",path)  
-        
+        CWM.keys.pop(client) # Remove the key from memory
+
         if not hndl:
             print(f"(WS) {path} : {str(datetime.now())} Connection Closed because bool(onConnect) return False {address}")
             return client.close() #Close if there was an Exception or return None
-        
+
         # Increment the number of clients and print 
-        num_client : int = self.routes[path]['clients'].__len__()+1
+        clis = self.routes[path]['view'].clients
+
+        num_client : int = clis.__len__()+1
         print(f"(WS) {path} : {str(datetime.now())} Connection Established ({num_client} Client{'s' if num_client > 1 else ''}) {address}")
 
         # Add them to the clients-list (current route)
-        # self.routes[path]['clients'].append(client)
-        self.routes[path]['clients'][client] = hndl # hndl returns state
+        clis[client] = hndl # hndl returns state
 
         while True:
             try:
                 data = client.recv(CWM.MaxSize())
             except:
-                self.handleDisconnect(client,self.routes[path]['clients'])
+                print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
+                self.handleDisconnect(client,self.routes[path]['view'].clients)
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
             if len(data) == 0 or  data[0] == 136: # 136 exit code
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client,self.routes[path]['clients'])
+                self.handleDisconnect(client, self.routes[path]['view'].clients)
                 self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
@@ -466,7 +472,7 @@ class Server(RoutedWebsocketServer):
 
         #WebSocket Connection
         if 'Upgrade' in headers:
-            if headers['Upgrade'].lower()=='websocket':
+            if headers['Upgrade'].lower() =='websocket':
                 print(f'(WS) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
                 return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers,'dont_wait' : True}).start()
         
@@ -477,7 +483,6 @@ class Server(RoutedWebsocketServer):
     def start(self):
         print(f'({str(datetime.now())}) HTTP && WS Server has gone live.')
         return self.AwaitRequest()
-
 
 if __name__ == '__main__':
     pass

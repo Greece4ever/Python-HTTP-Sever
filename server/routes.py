@@ -88,6 +88,8 @@ class SocketView:
     """
     def __init__(self,max_size : int = 4096):
         self.max_size = max_size
+        self.keys = {}
+        self.clients = {}
 
     def onMessage(self,**kwargs):
         pass
@@ -96,18 +98,29 @@ class SocketView:
         pass
     
     def onConnect(self,client,**kwargs) -> bool:
-        pass
-
-    def send(self,client,socketfunction):
+        """onConnect must return an object,
+           so that bool(object) is True,
+           and will then be stored as state.
+           if the bool(object) returns False
+           the connection will be closed
+        """
         pass
 
     def get_client_ip(self,client) -> str:
         return client.getsockname()[0]
 
-    def accept(self,client,key : str) -> None:
+    def accept_with_key(self,client,key : str) -> None:
         """Accept client WebSocket Connection"""
         HTTP_MSG = status.Http101().__call__(key)
         client.send(HTTP_MSG)
+
+    def accept(self,client) -> None:
+        key = self.keys.get(client)
+        HTTP_MSG = status.Http101().__call__(key)
+        return client.send(HTTP_MSG)
+
+    def set_send_function(self,function : callable):
+        self.send = function
 
     def MaxSize(self):
         return self.max_size
