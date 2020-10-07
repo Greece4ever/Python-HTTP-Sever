@@ -41,12 +41,33 @@ class Table:
             self.primary_key = [p_key,self.primary_key.get(p_key)]
         else:
             self.primary_key = None
-        # fields = ",".join(STATMENTS)
+        fields = ",".join(STATMENTS)
         # pprint.pprint(self.primary_key)
         # pprint.pprint(self.collumns)
-        return(
-            f"CREATE TABLE {self.__name__}({fields})"
-        )
+        return(f"CREATE TABLE {self.__name__}({fields})")
+
+    @classmethod
+    def rows(self):
+        return Row(self)
+
+class Row:
+    def __init__(self, table : Table):
+        self.table = table
+        self.tname = self.table.__name__
+
+    def all(self,field_selections : list = []):
+        select = "*" if(len(field_selections) == 0) else ",".join(field_selections)
+        return f"""SELECT {select} FROM {self.tname}"""
+
+    def filter(self, field_selections : list = [], **kwargs):
+        select = "*" if(len(field_selections) == 0) else ",".join(field_selections)
+        s : list = []
+        for item in kwargs:
+            statement = f'{item}={kwargs.get(item)}'
+            s.append(statement)
+        s = " and ".join(s)
+        return f"""SELECT {select} FROM {self.tname} WHERE {s}"""
+
 
 class CharField(Model):    
     def __activate__(self, name):
@@ -79,18 +100,18 @@ class ForeginKey(Model):
                 raise ValueError(f"Reference table {self.reference_model} cannot be used as a Foreign key")
         except:
             raise ValueError(f"Reference table {self.reference_model} cannot be used as a Foreign key")
+        self.p_key = self.reference_model.primary_key[0]
         super(ForeginKey, self).__init__(*args, **kwargs)
 
     def __activate__(self, name):
         sql_statement = f'''
-        "{name}" INTEGER {"UNIQUE" if self.unique else ""} {"" if self.null else "NOT"} NULL {"PRIMARY KEY" if self.primary_key else ''},
-        "{name}" references {self.reference_model}(id)'''
+        "{name}" INTEGER {"UNIQUE" if self.unique else ""} {"" if self.null else "NOT"} NULL {"PRIMARY KEY" if self.primary_key else ''} references {self.reference_model.__name__}({self.p_key})'''
         return sql_statement
 
 class ManyToManyField(ForeginKey):
     def __activate__(self, name):
         sql_statement = f'''
-        "{name}" references {self.reference_model}(id)'''
+        "{name}" references {self.reference_model.__name__}({self.p_key})'''
         return sql_statement
 
 class OneToOneField:
@@ -102,12 +123,18 @@ class User(Table):
     password = CharField(null=False,unique=False)
     email = CharField(null=True,unique=True)
 
+x = User.__activate__()
+
 class Msg(Table):
-    id = IntergerField(primary_key=True)
-    
+    id = IntergerField(primary_key=True,null=False)
+    sender = ForeginKey(reference_model=User)
+
+# y = Msg.__activate__()
+
+# print(x,end="\n\n")
+# print(y)
 
 if __name__ == "__main__":
-    print(
-        User.__activate__()
-        # f"CREATE TABLE {User.__name__}({fields})"
-    )
+    print(User.__activate__())
+    print(User.rows().filter(field_selections=['username','password'],username="peos",password="123"))
+
