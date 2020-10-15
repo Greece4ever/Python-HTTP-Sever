@@ -3,7 +3,6 @@ from re import match
 from math import ceil
 import darius.Parsing.http as parseql
 
-
 non_encoding : list = [
   ";", 
   ",",
@@ -61,13 +60,23 @@ class Header:
         return f'{self.method} {self.url} HTTP/1.1\r\n' + self.c() + "\r\n"
     
 class Response:
-    def __init__(self,*args,**kwargs) -> None:
-        self.status_code = kwargs.get('status_code')
-        self.request_url = args[0]
+    
+    def __init__(self,request_url,status_code,headers,**kwargs) -> None:
+        self.headers = headers
+        self.status_code = status_code
+        self.request_url = request_url
+        self.host = kwargs.get('host') # detail_response
+        self.detail_resp = kwargs.get("detail_response")
 
-    def __str__(self):
-        return f'[{self.status_code}] XMLHttpRequest at {self.request_url}'
 
+    def __str__(self) -> str:
+        return f'<XMLHttpRequest [{self.status_code}] alias="{self.detail_resp}" target="{self.host}" header_length="{len(self.headers)}" />'
+
+    def setBody(self, data : bytes) -> None:
+        self.body = data
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 def gsp(x):
     chrs = ''
@@ -114,6 +123,28 @@ def get_host(url : str):
         path = "/"
     return [(base_url,port),path]
 
+def parseHRS(h_b,*args,**kwargs):
+    print(args)
+    hrs = parseql.ParseHeaders(h_b[0])
+    code = hrs.pop('type')
+    detail = hrs.pop('uri');hrs.pop('method')
+    resp = Response(status_code=code,detail_response=detail,headers=hrs,request_url=args[0].url,host=args[1])
+    recv = kwargs.get("recv")
+    if(len(h_b) > 1):
+        resp.setBody(h_b[1])
+    else:
+        i = 0
+        while True:
+            r = recv()
+            if(len(r)==0):
+                break
+            print(r.split(b"\r\n",1))
+            print(i,"<--- Iterations")
+            i+=1
+
+    return resp
+
+
 def XMLHttpRequest(headers : Header):
     (host,port),path = get_host(headers.get_url())
     headers.url = path
@@ -123,21 +154,26 @@ def XMLHttpRequest(headers : Header):
             connection.send(headers().encode())
             response = connection.recv(1024)
             print(response.decode(errors='ignore'))
-            return  #parseql.ParseHeaders(response,lambda : connection.recv(1024))
+            h_b = response.split(2*b'\r\n',1)
+            return parseHRS(h_b,headers,host,recv= lambda : connection.recv(1024))
         with ssl.create_default_context().wrap_socket(connection,server_hostname=host) as secure_connection:
-            print("<---------- MESSAGE ------------>")
-            print(headers())
-            secure_connection.send(headers().encode())
+            secure_connection.send(f'GET / HTTP/1.1\r\nHost: {host}\r\nConnection: keep-alive\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.198\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: none\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\nCookie: csrftoken=J9wmXKesPqeqZ9uKpJpP5DQsK5pLQv1rB6yF7ODeKR1yKUW287exFTYBbDvCdpG0\r\n\r\n'.encode())
+            response = '1321'
             response = secure_connection.recv(1024)
-            print("<------- Response ------->")
             print(response.decode(errors='ignore'))
-            # return parseql.ParseHTTP(request,lambda : secure_connection.recv(1024))
-
+            while True:
+                response = secure_connection.recv(1024)
+                print(response.decode(errors='ignore'))
+                if(not response):
+                    print("broke")
+                    break
+            h_b = response.split(2*b'\r\n',1)
+            return parseHRS(h_b,headers,host,recv= lambda : secure_connection.recv(1024))
+            
 request = Header({
     'method' : 'GET',
-    'url' : 'https://github.com/Greece4ever'
-    },{
-    "Accept": "*/*",
+    'url' : 'https://stackoverflow.com/questions/43925672/bad-request-your-browser-sent-a-request-that-this-server-could-not-understand'},
+    {"Accept": "*/*",
     "Content-Length" : '0',
     "Accept-Encoding": "gzip, deflate, br",
     "Accept-Language": "en-US,en;q=0.9",
@@ -147,9 +183,6 @@ request = Header({
 })
 
 if __name__ == "__main__":
-    pprint.pprint(
-        XMLHttpRequest(request)
-    )
-    # print(
-    #     request()
-    # )
+    req = XMLHttpRequest(request)
+    print(req)
+    pprint.pprint(req.headers)
