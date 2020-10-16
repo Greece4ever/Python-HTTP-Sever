@@ -32,7 +32,6 @@ class Header:
         return value                                        # DEN MPOREITE NA KANATE PARSE TA HEADERS
                                                             # AN IPARXEI GAMIMENO KENO PRIN TO :
 
-
     def pop(self,value):
         return self.headers.pop(value)
 
@@ -101,7 +100,7 @@ base_request = lambda **kwargs: Header(
     },
     {
         "Host" : kwargs.get("host"),
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate, identity",
         "Accept-Language": "en-US,en;q=0.9",
 })
 
@@ -112,6 +111,7 @@ def XMLHttpRequest(headers : Header,recv_size : int = 1024,
     max_wait_time : int = 1,
     allow_redirect : bool = True,
     allow_recursive_redirect : bool = False):
+    print("<----- STARTING REQUEST ----->")
     kwargs = locals()
     (host,port),path = get_host(headers.get_url())
     headers.url = path
@@ -126,6 +126,7 @@ def XMLHttpRequest(headers : Header,recv_size : int = 1024,
                 return parseHRS(h_b,headers,host,recv= lambda : connection.recv(1024))
 
             with ssl.create_default_context().wrap_socket(connection,server_hostname=host) as secure_connection:
+                print(headers())
                 secure_connection.send(headers().encode())
                 secure_connection.settimeout(max_wait_time)
                 hedrs : bytes = b''
@@ -153,11 +154,13 @@ def XMLHttpRequest(headers : Header,recv_size : int = 1024,
                         kwargs['allow_redirect'] = False
                     pprint.pprint(hedrs)
                     return XMLHttpRequest(**kwargs)
-
                 while True: # Parse Body
                     try:
                         data = secure_connection.recv(recv_size)
                         body += data
+                        print(data)
+                        if(data.strip() == b'0'):
+                            break
                     except:
                         break
 
@@ -172,7 +175,7 @@ def GET(target,**kwargs):
 
 if __name__ == "__main__":
     pprint.pprint(
-        GET('https://en.wikipedia.org/wiki/User_agent',max_wait_time=3,allow_redirect=False,allow_recursive_redirect=False)[0]
+        GET('https://www.youtube.com/watch?v=OOZjzq_e7bA',max_wait_time=3,allow_redirect=True,allow_recursive_redirect=True)[0]
     )
     # req = XMLHttpRequest(request)
     # print(req)
