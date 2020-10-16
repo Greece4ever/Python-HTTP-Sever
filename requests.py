@@ -2,6 +2,7 @@ import socket,ssl,pprint
 from re import match
 from math import ceil
 import darius.Parsing.http as parseql
+import zlib
 
 non_encoding : list = [
   ";", 
@@ -158,28 +159,37 @@ def XMLHttpRequest(headers : Header):
             return parseHRS(h_b,headers,host,recv= lambda : connection.recv(1024))
         with ssl.create_default_context().wrap_socket(connection,server_hostname=host) as secure_connection:
             secure_connection.send(f'GET / HTTP/1.1\r\nHost: {host}\r\nConnection: keep-alive\r\nCache-Control: max-age=0\r\nUpgrade-Insecure-Requests: 1\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 OPR/71.0.3770.198\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9\r\nSec-Fetch-Site: none\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-User: ?1\r\nSec-Fetch-Dest: document\r\nAccept-Encoding: gzip, deflate, br\r\nAccept-Language: en-US,en;q=0.9\r\nCookie: csrftoken=J9wmXKesPqeqZ9uKpJpP5DQsK5pLQv1rB6yF7ODeKR1yKUW287exFTYBbDvCdpG0\r\n\r\n'.encode())
-            response = '1321'
             response = secure_connection.recv(1024)
             print(response.decode(errors='ignore'))
             while True:
-                response = secure_connection.recv(1024)
-                print(response.decode(errors='ignore'))
-                if(not response):
-                    print("broke")
+                data = secure_connection.recv(1024)
+                response += data
+                byte = response.split(b"\r\n",1)
+                if(len(byte) > 1):
+                    try:
+                        print(int(byte[0],16))
+                        print("^^")
+                    except:
+                        pass
+                # print(zlib.decompress(response))
+                if(not data):
+                    print("broke","\r\n\n\n")
                     break
             h_b = response.split(2*b'\r\n',1)
+            print
             return parseHRS(h_b,headers,host,recv= lambda : secure_connection.recv(1024))
             
 request = Header({
     'method' : 'GET',
-    'url' : 'https://stackoverflow.com/questions/43925672/bad-request-your-browser-sent-a-request-that-this-server-could-not-understand'},
+    'url' : 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Transfer-Encoding'},
     {"Accept": "*/*",
     "Content-Length" : '0',
     "Accept-Encoding": "gzip, deflate, br",
     "Accept-Language": "en-US,en;q=0.9",
-    "Connection": "keep-alive",
+    "Connection": "close",
     "Upgrade-Insecure-Requests": "1",
     "User-Agent": "Darius",
+    "TE": "chunked;q=0."
 })
 
 if __name__ == "__main__":
