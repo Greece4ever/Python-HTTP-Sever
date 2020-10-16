@@ -35,6 +35,7 @@ def ParseHeaders(headers : bytes) -> dict:
     TMP_DICT['type'] = method
     TMP_DICT['uri'] = uri
     for header in y:
+        if(not b':' in header): continue
         spl : str = header.split(b':',1)
         key = spl[0].strip().decode()
         value = spl[1].strip().decode()
