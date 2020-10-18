@@ -83,7 +83,12 @@ class PostView(View):
 
 class RedirectView(View):
     def GET(self,request):
-        return status.Redirect().__call__('/poutsa')
+        return status.Redirect().__call__('/redirect')
+
+class InfiniteRedirectUrl:
+    def GET(self, request):
+        return status.Redirect()('redirect')
+
     
 S_PATH = r'C:\Users\Spartakos\Desktop\server\tests\socket.html'
 

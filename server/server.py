@@ -1,8 +1,8 @@
 # < - Package Imports
 from ..client_side import status
-from ..Parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody\
+from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody\
 ,replace,AppendHeaders,AppendRawHeaders)
-from ..Parsing import websocket
+from ..parsing import websocket
 from .routes import SocketView
 
 # < - Server Hadnling
@@ -52,7 +52,11 @@ class HttpServer:
         param: page505 : str = STANDAR_500_PAGE 
     """
 
-    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,port : int = HTTP_PORT,max_receive_size : int = 2 * 10e+05 ,page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,CORS_DOMAINS : list = [],XFRAME_DOMAINS : list = [],**kwargs):
+    def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,
+        port : int = HTTP_PORT,max_receive_size : int = 2 * 10e+05 ,
+        page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,CORS_DOMAINS : list = [],XFRAME_DOMAINS : list = [],
+        client_timeout : int = 3,**kwargs):
+        self.client_timeout = client_timeout
         isHttp = kwargs.get('http')
         print(f"Initiliazing local {'HTTP' if isHttp is None else 'WS' if isHttp.strip().lower() != 'standar server' else 'HTTP & WS'} Server on {host}:{port}")
         self.adress : tuple = (host,port)
@@ -111,7 +115,7 @@ class HttpServer:
         return q_msg
 
     def ParseBody(self,body,client,headers):
-        client.settimeout(4)
+        client.settimeout(self.client_timeout)
         body = AwaitFullBody(headers,body,lambda : client.recv(self.receive_size),max_size=self.max_receive_size)
         client.settimeout(None)
         headers = headers,body
@@ -186,7 +190,7 @@ class HttpServer:
            ** Called Only once and then thread exits\r
         """
         client,address = client 
-        client.settimeout(5)
+        client.settimeout(self.client_timeout)
         try:
             request = client.recv(self.receive_size) #Await for messages
         except:
@@ -289,8 +293,8 @@ class WebsocketServer(HttpServer):
         return client.send(status.Http101().__call__(key))
 
     def handleWebSocket(self,client,address,**kwargs):
-        # TODO 2 client.settimeout(5) # Wait 5 seconds for connection to be established
-        client.settimeout(4)
+        # TODO 2 client.settimeout(self.client_timeout) # Wait 5 seconds for connection to be established
+        client.settimeout(self.client_timeout)
         
         try:
             data = client.recv(1024)
@@ -374,7 +378,7 @@ class RoutedWebsocketServer(WebsocketServer):
         headers = kwargs.get('headers')
 
         if not kwargs.get('dont_wait'):
-            client.settimeout(5)
+            client.settimeout(self.client_timeout)
             try:
                 data = client.recv(self.global_max_size)
             except:
@@ -450,7 +454,7 @@ class Server(RoutedWebsocketServer):
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
-        client.settimeout(5) # wait for 5 seconds
+        client.settimeout(self.client_timeout) # wait for 5 seconds
 
         try:
             request : bytes = client.recv(1024)

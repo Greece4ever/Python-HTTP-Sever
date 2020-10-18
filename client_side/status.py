@@ -162,15 +162,6 @@ class Http206(Exception):
                 +template.encode())    
 
 
-class Http3xx(Exception):
-    @classmethod
-    def __call__(self,template):
-        return (b"HTTP/1.1 3xx **Redirection**\r\n"
-                +b"Content-Type: text/html\r\n"
-                +b"\r\n" 
-                +template.encode())    
-
-
 class Http300(Exception):
     @classmethod
     def __call__(self,template):
