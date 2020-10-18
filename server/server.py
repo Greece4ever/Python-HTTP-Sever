@@ -4,6 +4,7 @@ from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody\
 ,replace,AppendHeaders,AppendRawHeaders)
 from ..parsing import websocket
 from .routes import SocketView
+import pprint # TODO
 
 # < - Server Hadnling
 import socket
@@ -54,7 +55,8 @@ class HttpServer:
 
     def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,
         port : int = HTTP_PORT,max_receive_size : int = 2 * 10e+05 ,
-        page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,CORS_DOMAINS : list = [],XFRAME_DOMAINS : list = [],
+        page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,
+        CORS_DOMAINS : list = [],XFRAME_DOMAINS : list = [],
         client_timeout : int = 3,**kwargs):
         self.client_timeout = client_timeout
         isHttp = kwargs.get('http')
@@ -64,55 +66,26 @@ class HttpServer:
         try:
             self.connection.bind(self.adress)
         except:
-            raise RuntimeError(f"Could not bind.Something else is running on {self.adress[0]}:{self.adress[1]}.")
-        self.urls : dict = kwargs.get("URLS")
+            raise RuntimeError(f"Could not bind. Something else is running on {self.adress[0]}:{self.adress[1]}.")
 
-        if(self.urls is None or type(self.urls) != dict):
+        self.urls : dict = kwargs.get("URLS")
+        if(type(self.urls) != dict):
             if(not kwargs.get("no_urls")):
-                raise ValueError("URLS were of type {}, when they should have been {}.".format(type(self.urls),dict))
+                raise TypeError("URLS were of type {}, when they should have been {}.".format(type(self.urls),dict))
 
         self.page404 : callable = page404 
         self.page500 : str = page500
         self.receive_size = receive_size
         assert type(CORS_DOMAINS) == list, "CORS Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
         assert type(XFRAME_DOMAINS) == list,"X-FRAME Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
-        self.cors = self.CORS_DOMAINS = CORS_DOMAINS
+        self.CORS_DOMAINS = CORS_DOMAINS
         self.max_receive_size = max_receive_size
-        self.xframe =  X_FRAME('SAMEORIGIN')
+        self.xframe = X_FRAME('SAMEORIGIN')
         self.X_FRAME_DOMAINS = XFRAME_DOMAINS
 
-        if '*' in self.cors: #Everything is allowed
-            self.cors = lambda _: CORS('*')
-            tmp = '*'
-        
-        elif None in self.cors: #No Cors means it is automatically disallowed
-            self.cors = lambda _: ''
-            tmp = 'None (Only same site)'
-        
-        else:
-            self.cors = lambda domain : CORS(domain) if domain in self.CORS_DOMAINS else ''
-            tmp = f'{len(CORS_DOMAINS)} Domains'
-
-        print(f"(HTTP) Configured CORS Allowed Origins as {tmp}.")
+        print(f"(HTTP) Configured {len(self.CORS_DOMAINS)} Domains as eligible for CORS.")
 
         del isHttp
-
-    def HandleCORS(self,msg,headers):
-        isAllowed = headers[0].get("Origin")
-        q_msg = msg
-        if isAllowed:
-            origin = isAllowed
-            q_msg = AppendRawHeaders(q_msg,b"\r\n" + self.cors(origin).encode())
-        if 'Referer' in headers[0]:
-            try:
-                _ = headers[0]['Referer'].split("/")[0:3]
-                referer : list = "/".join(_)
-                if(referer in self.X_FRAME_DOMAINS):
-                    return q_msg
-            except:
-                ...        
-        q_msg = AppendRawHeaders(q_msg,b"\r\n" + self.xframe.encode())
-        return q_msg
 
     def ParseBody(self,body,client,headers):
         client.settimeout(self.client_timeout)
@@ -129,7 +102,7 @@ class HttpServer:
         # Cross-Origin Request
         if(origin is not None):
             if not origin in self.CORS_DOMAINS:
-                client.send(status.Http403().__call__("Request was blocked by Cross-Origin Resource Sharing."))
+                client.send(status.Response(403,"Request was blocked by Cross-Origin Resource Sharing.")())
                 return client.close()
 
         # Loop through the urls and try to find it
@@ -146,30 +119,34 @@ class HttpServer:
                             return client.close()
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)
-                    msg : str = URLS.get(url).__call__(headers) # <---- Here you fucked UP.
-                    assert type(msg) in (tuple,bytes),"Response must only return ({},{}) by calling __call__ on the response, you returned {}.".format(bytes,tuple,type(msg))
-                    if isinstance(msg,tuple): #Binary file
-                        with open(msg[1],'rb+') as file:
-                            initial = self.HandleCORS(msg[0](getsize(msg[1])),headers) #Send the HTTP Headers with the file lenght
-                            client.send(initial)
-                            try:
-                                for chunk in lazy_read(file):
-                                    client.send(chunk) #Lazy-send the chunks
-                            except:
-                                return client.close() # Any error due to exit
+                    msg : status.Response = URLS.get(url).__call__(headers) # <---- Here you did something wrong.
+                    __type__ = type(msg)
+                    if(not issubclass(__type__,status.Response)): 
+                        raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : type(msg),"t2" : status.Response}))
+
+                    print(f'REQUEST ENDED WITH CODE {msg.status_code}')
+                    if(type(msg.body) == status.Template): # File
+                        __fname__ : str = msg.body.path
+                        with open(__fname__,'rb+') as file:
+                            msg.headers['Content-Length'] = getsize(__fname__);msg.body = ''
+                            client.send(msg())
+                            for chunk in lazy_read(file):
+                                print("SENDING CHUNK")
+                                client.send(chunk) #Lazy-send the chunks
                     else:
                         client.send(self.HandleCORS(msg,headers))                
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
+                    print("500 Internal Server Error")
                     try:
-                        msg = self.HandleCORS(status.Http500().__call__(self.page500),headers)
-                        client.send(msg)
+                        client.send(status.Response(500,'Whoops! Something went wrong.')())
                     except Exception as f:
                         print_exception(type(f),f,f.__traceback__)
                 finally:
                     return client.close()
         #Page was not found
-        client.send(self.HandleCORS(status.Http404().__call__(self.page404(target)),(headers,'')))
+        print("404 Not Found")
+        client.send(status.Response(404,'not fond')())
         return client.close()
 
     def AwaitRequest(self):
@@ -240,6 +217,8 @@ class WebsocketServer(HttpServer):
         self.clients : list = [] #Store all the clients
         self.max_size = max_size
         isHttp = kwargs.get('http')
+        if(not 'no_urls' in kwargs):
+            kwargs['no_urls'] = True 
         super(WebsocketServer,self).__init__(host=host,port=port,http=f'{"WS" if isHttp is None else "Standar Server"}',**kwargs)
         del isHttp
         if (not kwargs.get('rdel')):
@@ -286,14 +265,13 @@ class WebsocketServer(HttpServer):
             CLS = list_of_clients
             CLS.pop(client) 
             return client.close()
-            # return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
+
 
     def accept(self,client : socket.socket,**kwargs) -> None:
         key = kwargs.get('key')
         return client.send(status.Http101().__call__(key))
 
     def handleWebSocket(self,client,address,**kwargs):
-        # TODO 2 client.settimeout(self.client_timeout) # Wait 5 seconds for connection to be established
         client.settimeout(self.client_timeout)
         
         try:
@@ -361,13 +339,14 @@ class RoutedWebsocketServer(WebsocketServer):
         self.global_max_size = global_max_size
         self.routes : dict = {}
         err_msg = f'Dictionary Value specifying view must inherit from {SocketView}.'
+        if(type(paths)!=dict): raise TypeError(f"Websocket paths must be {dict} not {type(paths)}.")
         for item in paths:
             assert type(item) == str, "Dictionary Key specifying path must be {} not {}".format(str,type(item))
             assert issubclass(type(paths[item]),SocketView),err_msg 
             paths[item].set_send_function(self.send)
-            # self.routes[item] =  {"clients" : {},"view" : paths[item]}
             self.routes[item] =  {"view" : paths[item]}
-        kwargs['no_urls'] = True
+        if(not 'no_urls' in kwargs):
+            kwargs['no_urls'] = True 
         super(RoutedWebsocketServer,self).__init__(host,port,**kwargs)
         del self.clients,self.max_size
 
@@ -450,7 +429,7 @@ class Server(RoutedWebsocketServer):
     """
     
     def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,CORS_DOMAINS : list = [],**kwargs) -> None:
-        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1,CORS_DOMAINS=CORS_DOMAINS,**kwargs)
+        super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1,CORS_DOMAINS=CORS_DOMAINS,no_urls=False,**kwargs)
     
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
@@ -460,18 +439,20 @@ class Server(RoutedWebsocketServer):
             request : bytes = client.recv(1024)
         except:
             return client.close()
-            
+
         client.settimeout(None) # clear the timeout
 
         if len(request) == 0:
             return client.close()
         
         spl = request.split(b'\r\n\r\n',1)
+        
         try:
             headers,body = spl
             headers = ParseHeaders(headers)
         except:
-            print(f"[ERROR] : {str(datetime.now())} | Invalid Request From client ({address})")
+            client.send(status.Response(400,"Could not parse Request")())
+            print(f"[ERROR] : {str(datetime.now())} | 400 Bad Request ({address})")
             return client.close()
 
         #WebSocket Connection

@@ -39,7 +39,6 @@ class Header:
         return f'{self.method} {self.url} HTTP/1.1\r\n' + self.c() + "\r\n"
     
 class Response:
-    
     def __init__(self,request_url,status_code,headers,**kwargs) -> None:
         self.response_headers = headers
         self.request_headers = kwargs.get("request_headers")

@@ -8,6 +8,7 @@ functions inside of here will 'compile' the scripts
 import re
 from typing import Tuple
 
+
 def popAll(item):
     item.pop(0)
     item.pop(1)
@@ -64,7 +65,6 @@ if __name__ == "__main__":
             if not data:
                 break
             yield data
-
 
     if 2 != 1 + 1 - 0:
         with open(path,'r',encoding='utf-8') as f:

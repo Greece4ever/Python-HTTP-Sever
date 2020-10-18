@@ -1,8 +1,7 @@
 from ..client_side import status
 from ..client_side import cscript as st
 
-def UI405(method : str) -> str:
-    return "<h1> Method {} not Allowed </h1>".format(method)
+err_msg = "Method not allowed"
 
 class View:
     """
@@ -28,42 +27,40 @@ class View:
             "TRACE" : self.TRACE,
             "PATCH" : self.PATCH
         }
-        self.PAGE_405_FUNCTION = kwargs.get('PAGE_405_FUNCTION')
-        self.PAGE_405_FUNCTION = self.PAGE_405_FUNCTION if self.PAGE_405_FUNCTION is not None else UI405
 
     def GET(self,request):
-        return status.Http405().__call__(UI405("GET"))
+        return status.Response(405,err_msg)
 
     def POST(self,request):
-        return status.Http405().__call__(UI405("POST"))
+        return status.Response(405,err_msg)
 
     def HEAD(self,request):
-        return status.Http405().__call__(UI405("HEAD"))
+        return status.Response(405,err_msg)
 
     def PUT(self,request):
-        return status.Http405().__call__(UI405("PUT"))
+        return status.Response(405,err_msg)
 
     def DELETE(self,request):
-        return status.Http405().__call__(UI405("DELETE"))
+        return status.Response(405,err_msg)
 
     def CONNECT(self,request):
-        return status.Http405().__call__(UI405("CONNECT"))
+        return status.Response(405,err_msg)
 
     def OPTIONS(self,request):
-        return status.Http405().__call__(UI405("OPTIONS"))
+        return status.Response(405,err_msg)
 
     def TRACE(self,request):
-        return status.Http405().__call__(UI405("TRACE"))
+        return status.Response(405,err_msg)
 
     def PATCH(self,request):
-        return status.Http405().__call__(UI405("PATCH"))
+        return status.Response(405,err_msg)
 
     def __call__(self,request):
         method = request[0]['method'].split(" ")[0].upper()
         view = self.cases.get(method)
         if(view is None):
             print("[ERROR] Request method not found : {}".format(method))
-            return status.Http405().__call__("Method {} not allowed.".format(method))
+            return status.Response(405,err_msg)
         return self.cases.get(method)(request)
 
 class SocketView:

@@ -1,15 +1,32 @@
 from ..server.server import WebsocketServer,HttpServer,RoutedWebsocketServer,Server
-from ..server.routes import View,template,SocketView
+from ..server.routes import View,SocketView
 from ..client_side import status
 # from cache import Cache
 import pprint,os,threading;import os
+
+BASE_DIR = os.getcwd()
+j : callable = lambda *path : os.path.join(BASE_DIR,*path)
+
+class Hello(View):
+    def GET(self, request, **kwargs):
+        pprint.pprint(request)
+        pprint.pprint(kwargs)
+        return status.Response(200,status.Template(j(*r'/Server/tests/test.html'.split("/"))))
+
+PATHS = {
+    r'/hello(\/)?' : Hello()
+}
+
+
+CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']
+server = Server(host='127.0.0.1',socket_paths={},http_paths=PATHS,CORS_DOMAINS=[None])
+server.start()
+
 
 # cache = Cache("cache.sqlite3","Cache",(1,datetime.timedelta(seconds=10)))
 STATIC_FILES_DIR : str = os.path.join(
     os.getcwd(),os.listdir()[0],'tests'
 )
-
-
 
 class Home(View):
     # @cache.CacheDecorator
@@ -176,10 +193,10 @@ PATHS = {
 }
 
 CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']
-server = Server(host='127.0.0.1',socket_paths=PATHS,http_paths=URLS,CORS_DOMAINS=[None])
+server = Server(host='127.0.0.1',socket_paths=PATHS,http_paths=1,CORS_DOMAINS=[None])
+server.start()
 # full_server.start()
 # server = HttpServer(URLS=URLS,port=8000,CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com'])
 # ws_server = RoutedWebsocketServer(paths=PATHS,port=69)
 # ws_server = SimpleWebSocketServer(port=69)
-threading.Thread(target=server.start).start()
 # threading.Thread(target=ws_server.start).start()
