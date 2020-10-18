@@ -103,7 +103,7 @@ base_request = lambda **kwargs: Header(
 })
 
 
-async def XMLHttpRequest(headers : Header,recv_size : int = 1024,
+def XMLHttpRequest(headers : Header,recv_size : int = 1024,
     header_wait_time : int = 1,
     header_recv_size : int = 1024,
     max_wait_time : int = 1,
@@ -190,22 +190,7 @@ async def XMLHttpRequest(headers : Header,recv_size : int = 1024,
 def GET(target,**kwargs):
     return XMLHttpRequest(base_request(url=target,method='GET'),**kwargs)
 
-async def hack():
-    response = await GET('http://localhost:8000/redirect',max_wait_time=1,allow_redirect=False)
-    return response
-
 if __name__ == "__main__":
-    import asyncio
-    loop = asyncio.get_event_loop()
-
-    async def fetch(uri):
-        print("FETCHING {}".format(uri))
-        return await GET(uri,max_wait_time=1,allow_redirect=False)
-
-    asyncio.ensure_future(fetch(f'http://localhost:8000/6'))
-    asyncio.ensure_future(fetch(f'http://localhost:8000/5'))
-    asyncio.ensure_future(fetch(f'http://localhost:8000/4'))
-    asyncio.ensure_future(fetch(f'http://localhost:8000/2'))
-    asyncio.ensure_future(fetch(f'http://localhost:8000/3'))
-
-    loop.run_forever()
+    print(GET(
+        "http://localhost:8000"
+    ))

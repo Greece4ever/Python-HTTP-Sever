@@ -85,7 +85,7 @@ class RedirectView(View):
     def GET(self,request):
         return status.Redirect().__call__('/redirect')
 
-class InfiniteRedirectUrl:
+class InfiniteRedirectUrl(View):
     def GET(self, request):
         return status.Redirect()('redirect')
 
@@ -110,7 +110,8 @@ URLS : dict = {
     r'\/profiles\/(\w+)(\/)?' : RView(),
     r'(\/)tests(\/)(\d+)(\/)?' : SampleView(),
     r'/post' : PostView(),
-    r'/redirect' : RedirectView()
+    r'/redirect' : RedirectView(),
+    r'/red' : InfiniteRedirectUrl()
 }
 
 # Routed WS Server
