@@ -612,17 +612,16 @@ common : dict = {100: 'Continue', 101: 'Switching Protocols', 200: 'OK', 201: 'C
 
 from datetime import datetime,timezone
 from io import BytesIO,StringIO
+from pprint import pprint
 
 def CookieExpirationDate(datetime_obj):
     return datetime_obj.strftime('%a, %d %b %Y %H:%M:%S %z')
-
 
 class InvalidHTTPResponse(BaseException):
     pass
 
 class Cookie:
-    def __init__(self, name : str, value : str, Expires : datetime = None, Domain : str = None, HttpOnly : bool = False, SameSite : str = 'Strict',**kwargs):
-        base = f'{name} : {value}'
+    def __init__(self, name : str, value : str, Expires : datetime = None, Domain : str = None, HttpOnly : bool = False,Secure : bool = False, SameSite : str = None,**kwargs):
         pos_arg = locals()
         pos_arg = {**pos_arg,**pos_arg.pop('kwargs')}
         self.name : str = name #TODO NOTE BUG
@@ -633,56 +632,66 @@ class Cookie:
                 pos_arg['Expires'] =  CookieExpirationDate(Expires)
             except:
                 raise InvalidHTTPResponse(f"Cookie expiration date must be of type {datetime} not {type(Expires)}")
-            
+        
+
         pos_arg.pop('name');pos_arg.pop('value');pos_arg.pop('self')
         self.positional = StringIO()
-        
+
+        only,secure = pos_arg.pop('HttpOnly'),pos_arg.pop('Secure')
+
         for arg in pos_arg:
             value = pos_arg.get(arg)
             if(value is None): continue
             self.positional.write(f'{arg}={value}; ')
+        
+        if(only):
+            self.positional.write('HttpOnly; ')
+        if(secure):
+            self.positional.write('Secure; ')
+
 
     def __str__(self):
         return f'{self.name}={self.value}; {self.positional.getvalue()}'
 
 class Response:
-    def __init__(self,status_code : int,*args):
+    def __init__(self,status_code : int,body ,*args):
         msg = common.get(status_code)
         if msg is None:
             try:
                 msg = args[0]
             except:
-                raise InvalidHTTPResponse("Passed custom status code as a positional argument \"{}\" but did not suply a description.".format(status_code))
+                raise InvalidHTTPResponse("Passed custom status code as a positional argument \"{}\" but did not supply a description.".format(status_code))
         self.response_code : str = f'HTTP/1.1 {status_code} {msg}\r\n'
         self.headers : dict = {'Content-Type' : 'text/html'}
 
     def __call__(self):
-        buffer = io.BytesIO()
+        buffer = BytesIO()
         buffer.write(self.response_code.encode())
         for item in self.headers:
             buffer.write(f'{item}: {self.headers.get(item)}\r\n')
         return buffer.getvalue()
 
-    def set_cookie(self,**cookies):
+    def set_cookie(self,*cookies):
         if(not 'Set-Cookie' in self.headers):
-            self.headers['Set-Cookie'] = {}
-        {
-            'name' : {
-                'value' : '3',
-                'Expires' : '',
-                'Domain' : '',
-                'HttpOnly' : False,
-                'SameSite' : True,
-                'Set-Cookie' : ''
-            },
-        }
-
-class JSONResposne(Response):
+            self.headers['Set-Cookie'] = []
+        for item in cookies:
+            self.headers['Set-Cookie'].append(str(item))
+        
+class JSONResponse(Response):
     def __init__(self,*args,**kwargs):
         super.__init__(*args, **kwargs)
         self.headers['Content-Type'] = 'application/json'
 
+class FileResponse(Response):
+    def __init__(self,path : str,*args,**kwargs):
+        super.__init__(*args, **kwargs)
+        filename = path.split("\\")[-1] #get the filename
+        ctype = content_types.get('.' + filename.split(".")[-1].lower()) #get the mime for the file type (.FILETYPE)
+        if ctype is not None:
+            self.headers['Content-Type'] = ctype
+        else:
+            self.headers.pop('Content-Type')
+        self.headers['Content-Disposition'] = 'inline; attachment; filename={}'.format(filename)
+
 if __name__ == "__main__":
-    c = Cookie('is_authenticated',False,Expires=datetime(9999,9,9))
-    print(c)
-    
+    pass

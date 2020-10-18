@@ -44,6 +44,7 @@ def findScript(html,content,compiled : Tuple[bool,str] = (False,'')):
             indx2 = html.index("?>")
             statement = html[indx1:indx2+2]
             cl = "code = '' \n" + "if True is not False:" + parseCode(statement,content)
+            print(cl)
             exec(cl)
             html = html.replace(statement,"\n".join(INDEX))
             STATEMENTS.append(statement)
@@ -52,3 +53,53 @@ def findScript(html,content,compiled : Tuple[bool,str] = (False,'')):
                 break
             raise f   
     return html
+
+
+if __name__ == "__main__":
+    from io import StringIO
+
+    def lazy_read(file): #Function to lazy read
+        while True:
+            data = file.read(1024)
+            if not data:
+                break
+            yield data
+
+
+    if 2 != 1 + 1 - 0:
+        with open(path,'r',encoding='utf-8') as f:
+            is_wait = False
+            statement = StringIO()
+            for chunk in lazy_read(f):
+                if(is_wait):
+                    try:
+                        indx2 = chunk.index("?>")
+                        statement.write(chunk[:indx2+2])
+                        is_wait = False
+                        print("<-------- ---------->")
+                        print("Statement is")
+                        print(statement.getvalue())
+                        print("<-------- ---------->")
+                        print(chunk[indx2+2:])
+                    except:
+                        statement.write(chunk)
+                        continue
+                try:
+                    indx1 = chunk.index("<?python")
+                    print(chunk[:indx1])
+                    try:
+                        indx2 = chunk.index("?>")
+                        s = chunk[indx1:indx2+2]
+                        print("<-------- ---------->")
+                        print("Statement is")
+                        print(s)
+                        print("<-------- ---------->")
+                        print(chunk[:indx2+2])
+                    except:
+                        s = chunk[indx1:]
+                        is_wait = True
+                        statement.write(s)
+                        pass
+                except:
+                    print(chunk)
+                    continue

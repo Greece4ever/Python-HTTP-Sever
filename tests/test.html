@@ -36,16 +36,65 @@
     </form>
 </div>
 
-
 <?python
-    for num in range(20):
+    for num in $$nums$$:
         html(
             <div>
-                <label>This is the {num}{"th" if bool(num > 3 or num ==0) else "st" if num == 1 else "nd" if num ==2 else "rd"} Number
-                <b>{ num } </b>
+                <label>
+                    { num }
+                    {";".join(str(item) for item in [1,2,3,4])}
+                </label>
             </div>
         )endhtml
 ?>
+
+<?python
+    for num in $$nums$$:
+        html(
+            <div>
+                <label>
+                    { num }
+                    {";".join(str(item) for item in [1,2,3,4])}
+                </label>
+            </div>
+        )endhtml
+?>
+
+<?python
+    for num in $$nums$$:
+        html(
+            <div>
+                <label>
+                    { num }
+                    {";".join(str(item) for item in [1,2,3,4])}
+                </label>
+            </div>
+        )endhtml
+?>
+<?python
+    for num in $$nums$$:
+        html(
+            <div>
+                <label>
+                    { num }
+                    {";".join(str(item) for item in [1,2,3,4])}
+                </label>
+            </div>
+        )endhtml
+?>
+<?python
+    for num in $$nums$$:
+        html(
+            <div>
+                <label>
+                    { num }
+                    {";".join(str(item) for item in [1,2,3,4])}
+                </label>
+            </div>
+        )endhtml
+?>
+
+
 
 
 </body>
