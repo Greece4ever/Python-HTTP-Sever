@@ -13,7 +13,6 @@ from copy import deepcopy
 common : dict = {100: 'Continue', 101: 'Switching Protocols', 200: 'OK', 201: 'Created', 202: 'Accepted', 203: 'Non-Authoritative Information', 204: 'No Content', 205: 'Reset Content', 206: 'Partial Content', 300: 'Multiple Choices', 301: 'Moved Permanently', 302: 'Found', 303: 'See Other', 304: 'Not Modified', 305: 'Use Proxy', 307: 'Temporary Redirect', 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 406: 'Not Acceptable', 407: 'Proxy Authentication Required', 408: 'Request Timeout', 409: 'Conflict', 410: 'Gone', 411: 'Length Required', 412: 'Precondition Failed', 413: 'Payload Too Large', 414: 'URI Too Long', 415: 'Unsupported Media Type', 416: 'Range Not Satisfiable', 417: 'Expectation Failed', 418: "I'm a teapot", 426: 'Upgrade Required', 500: 'Internal Server Error', 501: 'Not Implemented', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Time-out', 505: 'HTTP Version Not Supported', 102: 'Processing', 207: 'Multi-Status', 226: 'IM Used', 308: 'Permanent Redirect', 422: 'Unprocessable Entity', 423: 'Locked', 424: 'Failed Dependency', 428: 'Precondition Required', 429: 'Too Many Requests', 431: 'Request Header Fields Too Large', 451: 'Unavailable For Legal Reasons', 506: 'Variant Also Negotiates', 507: 'Insufficient Storage', 511: 'Network Authentication Required'}
 GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
-
 class Http101(Exception):
     """For handling WS Protocol requests"""
     @classmethod
@@ -113,7 +112,7 @@ class JSONResponse(Response):
 
 class FileResponse(Response):
     def __init__(self,path : str,*args,**kwargs):
-        super(FileResponse,self).__init__(*args, **kwargs)
+        super(FileResponse,self).__init__(body=Template(path),*args, **kwargs)
         filename = path.split("\\")[-1] #get the filename
         ctype = content_types.get('.' + filename.split(".")[-1].lower()) #get the mime for the file type (.FILETYPE)
         if ctype is not None:
@@ -121,11 +120,11 @@ class FileResponse(Response):
         else:
             self.headers.pop('Content-Type')
         self.headers['Content-Disposition'] = 'inline; attachment; filename={}'.format(filename)
-        self.path = path
+        
+    
     def __call__(self):
-        headers = super(FileResponse,self).__call__()
-        print(headers.decode())
-
+        return super(FileResponse,self).__call__()
+        
 def Redirect(path : str,redirect_status_code : int = 302):
     r = Response(status_code=redirect_status_code,body='')
     r.headers['Location'] = path

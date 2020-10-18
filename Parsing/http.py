@@ -3,25 +3,6 @@ from typing import Union
 from math import ceil
 import io,json
 
-def replace(index : int,target : str,rplc : str) -> str:
-    return target[:index] + str(rplc).encode() + target[index:]
-
-def bytereplaces(index,target,rplc):
-    t1 = target[:index]
-    t2 = target[index:]
-    return(t1 + rplc + t2)
-
-def AppendHeaders(response_ : Union[bytes,str],headers : dict):
-    response = response_
-    for item in headers:
-        expression = f'{item} : {headers[item]}\r\n'.encode()
-        indx = response.index(b'\r\n')+2
-        response = bytereplaces(indx,response,expression)
-    return response
-
-def AppendRawHeaders(response,data):
-    return bytereplaces(response.index(b'\r\n'),response,data[:len(data)-2])
-
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
         expression = expression.decode()
@@ -105,7 +86,6 @@ def ParseBody(body : bytes,code : int,**kwargs):
                     FORM_DATA['default'] = []
                 FORM_DATA['default'].append(attrs)
 
-            # FORM_DATA.append({attrs['name'] : attrs})
     elif code == 2:
         data = json.loads(body)
         return data
@@ -146,7 +126,8 @@ def ParseHTTP(data : bytes,await_data : callable,**kwargs):
 
 def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable,**kwargs) -> dict:
     ctype,length = [headers.get('Content-Type'),headers.get('Content-Length')] #if they do not provide content-length they may go fuck themselves
-
+    print("INITIAL BODY IS")
+    print(initial_body)
     if None in (ctype,length):
         return ''
     code : int

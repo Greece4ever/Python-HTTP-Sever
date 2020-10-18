@@ -1,7 +1,6 @@
 # < - Package Imports
 from ..client_side import status
-from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody\
-,replace,AppendHeaders,AppendRawHeaders)
+from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody)
 from ..parsing import websocket
 from .routes import SocketView
 import pprint # TODO
@@ -100,8 +99,10 @@ class HttpServer:
         # Cross-Origin Request
         if(origin is not None):
             if not origin in self.CORS_DOMAINS:
-                client.send(status.Response(403,"Request was blocked by Cross-Origin Resource Sharing.")())
-                return client.close()
+                pass #TODO <-----
+                # print("ORIGIN IN COR DOAMINS")
+                # client.send(status.Response(403,"Request was blocked by Cross-Origin Resource Sharing.")())
+                # return client.close()
 
         # Loop through the urls and try to find it
         for url in URLS:
@@ -421,23 +422,24 @@ class Server(RoutedWebsocketServer):
         then it is interpeted as HTTP else it is authenticated as ws.\n 
     """
     
-    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,CORS_DOMAINS : list = [],**kwargs) -> None:
+    def __init__(self,socket_paths : dict, http_paths : dict ,host : str = LOCALHOST,port : int = 8000,global_max_size : int = 1024,CORS_DOMAINS : list = [],headr_recv_size : int = 1024,**kwargs) -> None:
         super(Server, self).__init__(socket_paths,host,port,global_max_size,URLS=http_paths,rdel=1,CORS_DOMAINS=CORS_DOMAINS,no_urls=False,**kwargs)
-    
+        self.headr_recv_size = headr_recv_size
+
     def HandleRequest(self,client : socket.socket , URLS : dict) -> None:
         client,address = client 
         client.settimeout(self.client_timeout) # wait for 5 seconds
 
         try:
-            request : bytes = client.recv(1024)
+            request : bytes = client.recv(self.headr_recv_size) # NOTE TODO BUG <--------- SEE WHY BROWSER IS OPENING MULTIPLE CONNECTIONS && WHAT IF HEADER LENGTH IS BIGGER
         except:
+            return client.close()
+
+        if(not request):
             return client.close()
 
         client.settimeout(None) # clear the timeout
 
-        if len(request) == 0:
-            return client.close()
-        
         spl = request.split(b'\r\n\r\n',1)
         
         try:
@@ -455,7 +457,7 @@ class Server(RoutedWebsocketServer):
                 return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers,'dont_wait' : True}).start()
         
         #Normal HTTP Connection
-        print(f'(WS) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
+        print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS),kwargs={'body' : body}).start()
 
     def start(self):
