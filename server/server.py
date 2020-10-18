@@ -80,8 +80,7 @@ class HttpServer:
         assert type(XFRAME_DOMAINS) == list,"X-FRAME Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
         self.CORS_DOMAINS = CORS_DOMAINS
         self.max_receive_size = max_receive_size
-        self.xframe = X_FRAME('SAMEORIGIN')
-        self.X_FRAME_DOMAINS = XFRAME_DOMAINS
+        status.Response.default_headers = {**status.Response.default_headers,'X-Frame-Options' : 'SAMEORIGIN'}
 
         print(f"(HTTP) Configured {len(self.CORS_DOMAINS)} Domains as eligible for CORS.")
 
@@ -98,7 +97,6 @@ class HttpServer:
         hasBodyParsed : bool = type(headers) in (tuple,list) #See if there is form data
         target = headers[0]["method"].split(" ")[1] if hasBodyParsed else headers["method"].split(" ")[1] #target route    
         origin = headers.get("Origin")
-    
         # Cross-Origin Request
         if(origin is not None):
             if not origin in self.CORS_DOMAINS:
@@ -122,30 +120,25 @@ class HttpServer:
                     msg : status.Response = URLS.get(url).__call__(headers) # <---- Here you did something wrong.
                     __type__ = type(msg)
                     if(not issubclass(__type__,status.Response)): 
-                        raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : type(msg),"t2" : status.Response}))
+                        raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : status.Response,"t2" : type(msg)}))
 
-                    print(f'REQUEST ENDED WITH CODE {msg.status_code}')
                     if(type(msg.body) == status.Template): # File
                         __fname__ : str = msg.body.path
                         with open(__fname__,'rb+') as file:
                             msg.headers['Content-Length'] = getsize(__fname__);msg.body = ''
                             client.send(msg())
                             for chunk in lazy_read(file):
-                                print("SENDING CHUNK")
                                 client.send(chunk) #Lazy-send the chunks
                     else:
-                        client.send(self.HandleCORS(msg,headers))                
+                        client.send(msg())                
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
-                    print("500 Internal Server Error")
                     try:
                         client.send(status.Response(500,'Whoops! Something went wrong.')())
                     except Exception as f:
                         print_exception(type(f),f,f.__traceback__)
                 finally:
                     return client.close()
-        #Page was not found
-        print("404 Not Found")
         client.send(status.Response(404,'not fond')())
         return client.close()
 
@@ -462,7 +455,7 @@ class Server(RoutedWebsocketServer):
                 return threading.Thread(target=self.handleWebSocket,args=(client,address), kwargs={'headers' : headers,'dont_wait' : True}).start()
         
         #Normal HTTP Connection
-        print(f'(HTTP) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
+        print(f'(WS) : {unquote(headers["method"])} | {str(datetime.now())} : {address}')
         return threading.Thread(target=self.handleHTTP,args=(client,headers,URLS),kwargs={'body' : body}).start()
 
     def start(self):

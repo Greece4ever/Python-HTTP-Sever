@@ -6,3 +6,5 @@
 *.m4v
 *.sqlite3
 *.db
+*.key
+*.pem

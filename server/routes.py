@@ -59,7 +59,7 @@ class View:
         method = request[0]['method'].split(" ")[0].upper()
         view = self.cases.get(method)
         if(view is None):
-            print("[ERROR] Request method not found : {}".format(method))
+            print("[ERROR] : [405] | Request method not found : {}".format(method))
             return status.Response(405,err_msg)
         return self.cases.get(method)(request)
 
