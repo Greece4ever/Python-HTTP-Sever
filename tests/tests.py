@@ -35,13 +35,30 @@ class FormSubmit(View):
         pprint.pprint(request)
         return status.Response(200,"<div>200 OK</div>")
 
+class Form(View):
+    def GET(self, request : tuple, **kwargs) -> status.Response:
+        return status.Response(200,status.Template(b_f('json.html')))
+
+    def POST(self, request : tuple, **kwargs) -> status.Response:
+        pprint.pprint(request)
+        return status.JSONResponse(status_code=69,msg="gamiese",tempalte={"status" : "ok"})
+
+
+class LargeVideo(View):
+    def GET(self, request, **kwargs):
+        r =  status.FileResponse(r"C:\Users\progr\Videos\Captures\Blender 2020-10-19 17-15-58.mp4",status_code=206)
+        r.headers['Accept-Ranges'] = 'bytes'
+        r.headers['Connection'] = 'keep-alive'
+        return r
 
 PATHS = {
     r'/json/?' : JsonView(),
     r'/cookie/?' : CookieSetter(),
     r'/redirect/?' : Redirecter(),
     r'/static/?' : BinaryFile(),
-    r'/post/?' : FormSubmit()
+    r'/post/?' : FormSubmit(),
+    r'/video/?' : LargeVideo(),
+    r'/send_data/?' : Form()
 }
 
 CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']

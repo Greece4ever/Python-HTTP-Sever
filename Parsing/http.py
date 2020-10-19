@@ -126,8 +126,6 @@ def ParseHTTP(data : bytes,await_data : callable,**kwargs):
 
 def AwaitFullBody(headers : dict,initial_body : bytes,await_data : callable,**kwargs) -> dict:
     ctype,length = [headers.get('Content-Type'),headers.get('Content-Length')] #if they do not provide content-length they may go fuck themselves
-    print("INITIAL BODY IS")
-    print(initial_body)
     if None in (ctype,length):
         return ''
     code : int

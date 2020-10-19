@@ -6,10 +6,20 @@
     <title>Document</title>
 </head>
 <body>
+<p>
 <input id='us' type="text" placeholder="Username">
+</p>
+<p>
 <input id='cp' type="password" placeholder="Password">
-<input id='subm' type="submit">
-<video width="400px" height="400px" src="/images/7"></video>
+</p>
+<p>
+<input id='fs' type="file">
+</p>
+<p>
+    <input id='subm' type="submit">
+</p>
+<input id='fs_data' type="submit">
+
 </body>
 </html>
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
@@ -18,18 +28,31 @@
     const usr = document.getElementById("us")
     const ps = document.getElementById("cp")
     const btn = document.getElementById("subm")
+    const btn2 = document.getElementById("fs_data")
 
     btn.addEventListener('click',() => {
         let usnr = usr.value;let password = ps.value;
-        axios.post("/json",{
+        axios.post("/send_data",{
             'username' : usnr,
             'password' : password,
             'additional' : [1,2,3,4,5,6,7,9,10]
         }).then(response => {
             console.log(response)
         })
-
     })
+
+    btn2.addEventListener("click",() => {
+        data = new FormData();
+        data.append("file",document.getElementById("fs").files[0])
+        data.append("username",usr.value)
+        data.append("password",ps.value)
+        axios.post("/send_data",data,{
+            headers : {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+    })
+
     document.body.addEventListener("keypress",(e) => {
         if(e.keyCode==13) {btn.click();}  //Enter Axios
         else if (e.keyCode == 32) { //Space Jquery

@@ -25,9 +25,9 @@ SocketBin,SocketBinSend = websocket.ReceiveData,websocket.SendData
 DataWait : callable = websocket.AwaitSocketData 
 EnsureSocket : callable = websocket.EnsureSocket
 
-def lazy_read(file): #Function to lazy read
+def lazy_read(file,chunk_size : int = 1024): #Function to lazy read
     while True:
-        data = file.read(1024)
+        data = file.read(chunk_size)
         if not data:
             break
         yield data
@@ -97,17 +97,14 @@ class HttpServer:
         target = headers[0]["method"].split(" ")[1] if hasBodyParsed else headers["method"].split(" ")[1] #target route    
         origin = headers.get("Origin")
         # Cross-Origin Request
+
         if(origin is not None):
             if not origin in self.CORS_DOMAINS:
                 pass #TODO <-----
-                # print("ORIGIN IN COR DOAMINS")
-                # client.send(status.Response(403,"Request was blocked by Cross-Origin Resource Sharing.")())
-                # return client.close()
 
         # Loop through the urls and try to find it
         for url in URLS:
-            match = re.fullmatch(url,target) # full regex match
-            if match:  
+            if re.fullmatch(url,target):  
                 try:
                     # Only if the path is found wait for the full fucking request
                     if not hasBodyParsed:
@@ -122,22 +119,34 @@ class HttpServer:
                     __type__ = type(msg)
                     if(not issubclass(__type__,status.Response)): 
                         raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : status.Response,"t2" : type(msg)}))
-
+                    
                     if(type(msg.body) == status.Template): # File
                         __fname__ : str = msg.body.path
                         with open(__fname__,'rb+') as file:
-                            msg.headers['Content-Length'] = getsize(__fname__);msg.body = ''
+                            __size__ = getsize(__fname__)
+                            msg.headers['Content-Length'] = __size__;msg.body = ''
+                            rng = headers[0].get("Range")
+                            if(rng):
+                                msg.headers['Content-Length'] = 512000  # 512 kb
+                                s = rng.split("=")[-1].replace("-",'')
+                                msg.headers['Content-Range'] = f'bytes {s}-{int(s)+512000 }/{__size__}'
+                                file.seek(int(s),1)
                             client.send(msg())
-                            for chunk in lazy_read(file):
-                                client.send(chunk) #Lazy-send the chunks
+                            
+                            try:
+                                for chunk in lazy_read(file,512000):
+                                    client.send(chunk) #Lazy-send the chunks
+                                    return
+                            except:
+                                return client.close()                        
                     else:
                         client.send(msg())                
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     try:
                         client.send(status.Response(500,'Whoops! Something went wrong.')())
-                    except Exception as f:
-                        print_exception(type(f),f,f.__traceback__)
+                    except:
+                        pass
                 finally:
                     return client.close()
         client.send(status.Response(404,'not fond')())

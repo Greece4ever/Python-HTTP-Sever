@@ -124,7 +124,13 @@ class FileResponse(Response):
     
     def __call__(self):
         return super(FileResponse,self).__call__()
-        
+    
+class StreamingFileResponse(FileResponse):
+    def __init__(self,path : str,chunk_size : int = 512 * 1000,*args,**kwargs):
+        super(FileResponse,self).__init__(path,status_code=206,*args, **kwargs)
+        self.headers['Accept-Ranges'] = 'bytes'
+        self.chunk_size = chunk_size
+
 def Redirect(path : str,redirect_status_code : int = 302):
     r = Response(status_code=redirect_status_code,body='')
     r.headers['Location'] = path
