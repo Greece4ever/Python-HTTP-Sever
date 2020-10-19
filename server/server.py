@@ -110,8 +110,8 @@ class HttpServer:
                     if not hasBodyParsed:
                         headers = self.ParseBody(kwargs.get('body'),client,headers) # Await for additional messages
                         if(headers[1] == 666):
-                            client.send(status.Http403().__call__(f"Request blocked, due to it exceding the maximum payload size of {self.max_receive_size}."))
-                            print(f'(HTTP) : {headers[0]["method"]} - ACCESS DENIED | {str(datetime.now())} : Client Exeeded maximum body payload size {self.get_client_ip(client)}.')
+                            client.send(status.Response(status_code=413,body=f"Request blocked, due to it exceding the maximum payload size of {self.max_receive_size}.")())
+                            print(f'(HTTP) : {headers[0]["method"]} - 413 Payload Too Large | {str(datetime.now())} : {self.get_client_ip(client)}.')
                             return client.close()
                     else:
                         headers[0]['IP'] = self.get_client_ip(client)

@@ -41,7 +41,10 @@ class Form(View):
 
     def POST(self, request : tuple, **kwargs) -> status.Response:
         pprint.pprint(request)
-        return status.JSONResponse(status_code=69,msg="gamiese",tempalte={"status" : "ok"})
+        f = request[-1].get('file')
+        with open(b_f(f['filename']),'wb+') as file:
+            file.write(f['data'].getvalue())
+        return status.FileResponse(b_f(f['filename']),status_code=200)
 
 
 class LargeVideo(View):
