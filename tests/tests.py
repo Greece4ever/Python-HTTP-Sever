@@ -54,13 +54,17 @@ class LargeVideo(View):
         r.headers['Connection'] = 'keep-alive'
         return r
 
+class VideoStream(View):
+    def GET(self, request, **kwargs):
+        return status.StreamingFileResponse(r'C:\Users\progr\Videos\Captures\Blender 2020-10-19 17-15-58.mp4')
+
 PATHS = {
     r'/json/?' : JsonView(),
     r'/cookie/?' : CookieSetter(),
     r'/redirect/?' : Redirecter(),
     r'/static/?' : BinaryFile(),
     r'/post/?' : FormSubmit(),
-    r'/video/?' : LargeVideo(),
+    r'/video/?' : VideoStream(),
     r'/send_data/?' : Form()
 }
 

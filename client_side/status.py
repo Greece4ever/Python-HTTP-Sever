@@ -127,7 +127,7 @@ class FileResponse(Response):
     
 class StreamingFileResponse(FileResponse):
     def __init__(self,path : str,chunk_size : int = 512 * 1000,*args,**kwargs):
-        super(FileResponse,self).__init__(path,status_code=206,*args, **kwargs)
+        super(StreamingFileResponse,self).__init__(path=path,status_code=206,*args, **kwargs)
         self.headers['Accept-Ranges'] = 'bytes'
         self.chunk_size = chunk_size
 

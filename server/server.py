@@ -3,7 +3,6 @@ from ..client_side import status
 from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody)
 from ..parsing import websocket
 from .routes import SocketView
-import pprint # TODO
 
 # < - Server Hadnling
 import socket
@@ -11,7 +10,7 @@ import threading
 
 # < - For Parsing - Hints
 from datetime import datetime
-import re
+from re import fullmatch
 from typing import Any,Union
 from traceback import print_exception
 
@@ -33,11 +32,7 @@ def lazy_read(file,chunk_size : int = 1024): #Function to lazy read
         yield data
 
 LOCALHOST : str = "127.0.0.1"
-HTTP_PORT : int = 80
-STANDAR_404_PAGE : callable = lambda page : "<b>Page {} Was not Found (404 Status Code)</b>".format(page)
-STANDAR_500_PAGE : str = "<h1>500 Internal Server Error</h1>"
-CORS : callable = lambda origin : 'Access-Control-Allow-Origin : {}\r\n'.format(origin)
-X_FRAME : callable = lambda value : f'X-Frame-Options: {value}\r\n'
+base_error = lambda err: f'<div style="text-align: center"><h1>Darius <span style="color: #00000033;font-size: 23px;">HTTP/1.1<span></span></span></h1><hr><span>{err}</span></div>'
 
 class HttpServer:
     """
@@ -53,8 +48,7 @@ class HttpServer:
     """
 
     def __init__(self,host : str = LOCALHOST,receive_size : int = 1024,
-        port : int = HTTP_PORT,max_receive_size : int = 2 * 10e+05 ,
-        page404 : callable = STANDAR_404_PAGE,page500 : str = STANDAR_500_PAGE,
+        port : int = 80,max_receive_size : int = 2 * 10e+05 ,
         CORS_DOMAINS : list = [],XFRAME_DOMAINS : list = [],
         client_timeout : int = 3,**kwargs):
         self.client_timeout = client_timeout
@@ -72,8 +66,6 @@ class HttpServer:
             if(not kwargs.get("no_urls")):
                 raise TypeError("URLS were of type {}, when they should have been {}.".format(type(self.urls),dict))
 
-        self.page404 : callable = page404 
-        self.page500 : str = page500
         self.receive_size = receive_size
         assert type(CORS_DOMAINS) == list, "CORS Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
         assert type(XFRAME_DOMAINS) == list,"X-FRAME Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
@@ -100,11 +92,12 @@ class HttpServer:
 
         if(origin is not None):
             if not origin in self.CORS_DOMAINS:
-                pass #TODO <-----
+                r = status.Response(403,"Action not allowed.");r.headers["Access-Control-Allow-Headers"] = "Definitely not you.";client.send(r())
+                return client.close()
 
         # Loop through the urls and try to find it
         for url in URLS:
-            if re.fullmatch(url,target):  
+            if fullmatch(url,target):  
                 try:
                     # Only if the path is found wait for the full fucking request
                     if not hasBodyParsed:
@@ -117,45 +110,49 @@ class HttpServer:
                         headers[0]['IP'] = self.get_client_ip(client)
                     msg : status.Response = URLS.get(url).__call__(headers) # <---- Here you did something wrong.
                     __type__ = type(msg)
-                    if(not issubclass(__type__,status.Response)): 
-                        raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : status.Response,"t2" : type(msg)}))
-                    
+                    if(not issubclass(__type__,status.Response)):  raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : status.Response,"t2" : type(msg)}))                    
                     if(type(msg.body) == status.Template): # File
                         __fname__ : str = msg.body.path
                         with open(__fname__,'rb+') as file:
                             __size__ = getsize(__fname__)
                             msg.headers['Content-Length'] = __size__;msg.body = ''
-                            rng = headers[0].get("Range")
-                            if(rng):
-                                msg.headers['Content-Length'] = 512000  # 512 kb
-                                s = rng.split("=")[-1].replace("-",'')
-                                msg.headers['Content-Range'] = f'bytes {s}-{int(s)+512000 }/{__size__}'
-                                file.seek(int(s),1)
-                            client.send(msg())
-                            
-                            try:
-                                for chunk in lazy_read(file,512000):
-                                    client.send(chunk) #Lazy-send the chunks
-                                    return
-                            except:
-                                return client.close()                        
+                            if(__type__ == status.StreamingFileResponse): # Streaming Http Response
+                                rng = headers[0].get("Range")
+                                if(rng):
+                                    msg.headers['Content-Length'] = msg.chunk_size  # 512 kb
+                                    s = rng.split("=")[-1].replace("-",'')
+                                    msg.headers['Content-Range'] = f'bytes {s}-{int(s)+msg.chunk_size }/{__size__}'
+                                    file.seek(int(s),1)
+                                client.send(msg())
+                                try:
+                                    for chunk in lazy_read(file,msg.chunk_size):
+                                        client.send(chunk) #Lazy-send the chunks
+                                        return client.close()
+                                except:
+                                    return client.close()                        
+                            else:
+                                client.send(msg())
+                                try:
+                                    for chunk in lazy_read(file,1024):
+                                        client.send(chunk)
+                                except:
+                                    return client.close()                        
                     else:
                         client.send(msg())                
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     try:
-                        client.send(status.Response(500,'Whoops! Something went wrong.')())
+                        client.send(status.Response(500,base_error("500 Internal Server Error"))())
                     except:
                         pass
                 finally:
                     return client.close()
-        client.send(status.Response(404,'not fond')())
+        client.send(status.Response(404,base_error("404 Not Found"))())
         return client.close()
 
     def AwaitRequest(self):
         """Wait for requests to be made"""
         self.connection.listen(1)
-        #Start thread not to block request
         while True:
             client = self.connection.accept()
             t = threading.Thread(target=self.HandleRequest,args=(client,self.urls))
@@ -173,16 +170,15 @@ class HttpServer:
         client.settimeout(self.client_timeout)
         try:
             request = client.recv(self.receive_size) #Await for messages
+            if(not request):
+                return client.close()
         except:
             return client.close()     
-
-        if len(request) == 0:
-            return client.close()
 
         headers = ParseHTTP(request,lambda : client.recv(self.receive_size),max_size=self.max_receive_size)
 
         if(headers==666):
-            client.send(status.Http403().__call__(f"Request blocked, due to it exceding the maximum payload size of {self.max_receive_size}."))
+            client.send(status.Response(status_code="413",body=f"Request blocked, due to it exceding the maximum payload size of {self.max_receive_size}."))
             print(f'(HTTP) : {headers[0]["method"]} - ACCESS DENIED | {str(datetime.now())} : Client Exeeded maximum body payload size {address}.')
             return client.close()
 
@@ -455,7 +451,7 @@ class Server(RoutedWebsocketServer):
             headers,body = spl
             headers = ParseHeaders(headers)
         except:
-            client.send(status.Response(400,"Could not parse Request")())
+            client.send(status.Response(400,base_error("400 Bad Request (Could not parse message)"))())
             print(f"[ERROR] : {str(datetime.now())} | 400 Bad Request ({address})")
             return client.close()
 

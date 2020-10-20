@@ -1,61 +1,5 @@
-"""
-Module for automation/script creation inside  HTML files
-When Rendered inside a view, using the template function
-if an additional parameter 'usePythonScript' is True
-functions inside of here will 'compile' the scripts
-"""
-
 import re
 from typing import Tuple
-from ..server.server import lazy_read
-
-
-def popAll(item):
-    item.pop(0)
-    item.pop(1)
-    item.pop(-1)
-    item.pop(-2)
-
-def insert(string : str,index : str,ins_val : str) -> str:
-    return string[:index] + ins_val + string[index:]
-
-def parseVariables(html,content):
-    objs = re.findall(r'\$\$(\w+)\$\$',html)
-    for item in objs:
-        html = html.replace(f"$${item}$$",str(content.get(item)))
-    return html
-
-def parseHTML(html):
-    res = html.replace('html(',r'code = f"""').replace(")endhtml",'"""\n        INDEX.append(code)')
-    return res
-
-def parseCode(html,context):
-    PV = parseVariables(html,context)
-    PH = parseHTML(PV)
-    return PH.replace("<?python",'').replace("?>",'')
-    
-def findScript(html,content,compiled : Tuple[bool,str] = (False,'')):
-    """Find all the <?python ?> script tags inside a hyper text mark up language document"""
-    STATEMENTS : list = []
-    if compiled[0]:
-        return html
-    while True:
-        try:
-            INDEX : list = []
-            indx1 = html.index("<?python")
-            indx2 = html.index("?>")
-            statement = html[indx1:indx2+2]
-            cl = "code = '' \n" + "if True is not False:" + parseCode(statement,content)
-            print(cl)
-            exec(cl)
-            html = html.replace(statement,"\n".join(INDEX))
-            STATEMENTS.append(statement)
-        except Exception as f:
-            if type(f) == ValueError:
-                break
-            raise f   
-    return html
-
 
 if __name__ == "__main__":
     from io import StringIO
@@ -83,8 +27,6 @@ if __name__ == "__main__":
     
 
     def script_in_chunks(file, buffer_size : int = 1024):
-        prev = StringIO()
-
         def find_script(buff_chunk,check_buffer : bool = True):
             try:
                 start = buff_chunk.index('<?python')
@@ -94,17 +36,42 @@ if __name__ == "__main__":
                 except:
                     return [buff_chunk[:start],buff_chunk[start:]]
             except:
-                return buff_chunk
+                return [buff_chunk]
 
     
         with open(file) as f:
+            state : bool = False
+            _buffer : StringIO = StringIO()
+            _script : StringIO = StringIO()
             for chunk in lazy_read(f,buffer_size):
-                _buffer : StringIO = StringIO()
+                # Only start is found
+                if(state):
+                    try:
+                        indx = chunk.index("?endpython>")
+                        _script.write(chunk[:indx]);state = False
+                        print(chunk[indx:])
+                        eval_script(_script.getvalue())
+                    except:
+                        _script.write(chunk)
+                        try:
+                            data = _script.getvalue()
+                            indx = data.index("?endpython>")
+                            print(data[indx:])
+                            eval_script(data)
+                        except:
+                            continue
+                    finally:
+                        continue
                 pars = find_script(chunk)
-                if(len(pars)==2):
+                if(len(pars)==2): # only start
                     print(pars[0])
-                    _buffer.write(pars[1])
-                elif(len(pars)==3):
+                    _buffer.write(pars[0][-10:])
+                    _script.write(pars[1])
+                    state = True
+                elif(len(pars)==3): # all is found
                     print(pars[0])
                     print(pars[1])
                     pass
+                else:
+                    _buffer.write(chunk)
+                    find_script(_buffer)
