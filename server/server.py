@@ -1,6 +1,6 @@
 # < - Package Imports
 from ..client_side import status
-from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody)
+from ..parsing.http import (ParseHeaders,ParseHTTP,AwaitFullBody,lazy_read)
 from ..parsing import websocket
 from .routes import SocketView
 
@@ -13,6 +13,7 @@ from datetime import datetime
 from re import fullmatch
 from typing import Any,Union
 from traceback import print_exception
+from warnings import warn
 
 # < - File handling-Decoding
 from os.path import getsize,join
@@ -24,12 +25,6 @@ SocketBin,SocketBinSend = websocket.ReceiveData,websocket.SendData
 DataWait : callable = websocket.AwaitSocketData 
 EnsureSocket : callable = websocket.EnsureSocket
 
-def lazy_read(file,chunk_size : int = 1024): #Function to lazy read
-    while True:
-        data = file.read(chunk_size)
-        if not data:
-            break
-        yield data
 
 LOCALHOST : str = "127.0.0.1"
 base_error = lambda err: f'<div style="text-align: center"><h1>Darius <span style="color: #00000033;font-size: 23px;">HTTP/1.1<span></span></span></h1><hr><span>{err}</span></div>'
@@ -69,6 +64,9 @@ class HttpServer:
         self.receive_size = receive_size
         assert type(CORS_DOMAINS) == list, "CORS Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
         assert type(XFRAME_DOMAINS) == list,"X-FRAME Allowed URI's should be passed as {} not {}.".format(list,type(XFRAME_DOMAINS))
+        for URI in CORS_DOMAINS:
+            if(not fullmatch(r'https?://(\w+)(:\d+)(\.(\w+))?(\.(\w+))?',URI)):
+                warn(f"URL : \"{URI}\" Does not match the standar CORS Origin domain format that would be packed into a header ( https?://domain_name ), thus it might be ignored.")
         self.CORS_DOMAINS = CORS_DOMAINS
         self.max_receive_size = max_receive_size
         status.Response.default_headers = {**status.Response.default_headers,'X-Frame-Options' : 'SAMEORIGIN'}
@@ -87,13 +85,15 @@ class HttpServer:
     def handleHTTP(self,client : socket.socket,headers : dict,URLS : dict,**kwargs) -> None:
         hasBodyParsed : bool = type(headers) in (tuple,list) #See if there is form data
         target = headers[0]["method"].split(" ")[1] if hasBodyParsed else headers["method"].split(" ")[1] #target route    
-        origin = headers.get("Origin")
+        origin = headers.get("Origin");initial_headers : dict = {}
         # Cross-Origin Request
 
         if(origin is not None):
             if not origin in self.CORS_DOMAINS:
-                r = status.Response(403,"Action not allowed.");r.headers["Access-Control-Allow-Headers"] = "Definitely not you.";client.send(r())
+                r = status.Response(403,"Action not allowed.");r.headers["Access-Control-Allow-Origin"] = "null";client.send(r())
                 return client.close()
+            else:
+                initial_headers = {"Access-Control-Allow-Origin" : origin}
 
         # Loop through the urls and try to find it
         for url in URLS:
@@ -111,6 +111,7 @@ class HttpServer:
                     msg : status.Response = URLS.get(url).__call__(headers) # <---- Here you did something wrong.
                     __type__ = type(msg)
                     if(not issubclass(__type__,status.Response)):  raise TypeError("Expected {t1} as return type from View, instead got {t2}.".format_map({"t1" : status.Response,"t2" : type(msg)}))                    
+                    msg.headers = {**msg.headers,**initial_headers}
                     if(type(msg.body) == status.Template): # File
                         __fname__ : str = msg.body.path
                         with open(__fname__,'rb+') as file:
@@ -142,12 +143,14 @@ class HttpServer:
                 except Exception as f:
                     print_exception(type(f),f,f.__traceback__)
                     try:
-                        client.send(status.Response(500,base_error("500 Internal Server Error"))())
+                        r = status.Response(500,base_error("500 Internal Server Error"));r.headers = {**r.headers,**initial_headers}
+                        client.send(r())
                     except:
                         pass
                 finally:
                     return client.close()
-        client.send(status.Response(404,base_error("404 Not Found"))())
+        r = status.Response(404,base_error("404 Not Found"));r.headers = {**r.headers,**initial_headers}
+        client.send(r())
         return client.close()
 
     def AwaitRequest(self):
@@ -262,9 +265,9 @@ class WebsocketServer(HttpServer):
             return self.handleTraceback(lambda _ : self.onExit(client,send_function=self.send),'onExit')
         else:
             CLS = list_of_clients
-            CLS.pop(client) 
-            return client.close()
-
+            state = CLS.pop(client) 
+            client.close()
+            return state
 
     def accept(self,client : socket.socket,**kwargs) -> None:
         key = kwargs.get('key')
@@ -398,14 +401,14 @@ class RoutedWebsocketServer(WebsocketServer):
                 data = client.recv(CWM.MaxSize())
             except:
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client,self.routes[path]['view'].clients)
-                self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
+                state = self.handleDisconnect(client,self.routes[path]['view'].clients)
+                self.handleTraceback(lambda _ : CWM.onExit(client,state=state,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
             if len(data) == 0 or  data[0] == 136: # 136 exit code
                 print(f"(WS) {path} : {str(datetime.now())} Connection Closed {address}")
-                self.handleDisconnect(client, self.routes[path]['view'].clients)
-                self.handleTraceback(lambda _ : CWM.onExit(client,path_info=self.routes[path],send_function=self.send),'onExit')
+                state = self.handleDisconnect(client, self.routes[path]['view'].clients)
+                self.handleTraceback(lambda _ : CWM.onExit(client,state=state,path_info=self.routes[path],send_function=self.send),'onExit')
                 break
 
             fin = data[1] & 127 # Decode the length of the message
@@ -451,7 +454,7 @@ class Server(RoutedWebsocketServer):
             headers,body = spl
             headers = ParseHeaders(headers)
         except:
-            client.send(status.Response(400,base_error("400 Bad Request (Could not parse message)"))())
+            client.send(status.Response(400,base_error("400 Bad Request [Invalid HTTP Message]"))())
             print(f"[ERROR] : {str(datetime.now())} | 400 Bad Request ({address})")
             return client.close()
 

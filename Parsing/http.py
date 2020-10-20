@@ -3,6 +3,13 @@ from typing import Union
 from math import ceil
 import io,json
 
+def lazy_read(file,chunk_size : int = 1024): #Function to lazy read
+    while True:
+        data = file.read(chunk_size)
+        if not data:
+            break
+        yield data
+
 def decodeURI(expression : Union[str,bytes]) -> str:
     if type(expression) == bytes:
         expression = expression.decode()

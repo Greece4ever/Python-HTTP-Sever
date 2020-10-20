@@ -18,7 +18,7 @@
 <script>
     const host = window.location.hostname;
     const PORT = 8000;
-    const socket = new WebSocket(`ws://${host}:${PORT}/${PATH}`);
+    const socket = new WebSocket(`ws://${host}:${PORT}/ws/chat`);
     const btn = document.getElementById("btn");
 
     document.body.addEventListener("keypress",(e) => {

@@ -46,18 +46,35 @@ class Form(View):
             file.write(f['data'].getvalue())
         return status.FileResponse(b_f(f['filename']),status_code=200)
 
-
-class LargeVideo(View):
-    def GET(self, request, **kwargs):
-        r =  status.FileResponse(r"C:\Users\progr\Videos\Captures\Blender 2020-10-19 17-15-58.mp4",status_code=206)
-        r.headers['Accept-Ranges'] = 'bytes'
-        r.headers['Connection'] = 'keep-alive'
-        return r
-
 class VideoStream(View):
     def GET(self, request, **kwargs):
         return status.StreamingFileResponse(r'C:\Users\progr\Videos\Captures\Blender 2020-10-19 17-15-58.mp4')
 
+class WebSocketHandler(View):
+    def GET(self, request, **kwargs):
+        return status.Response(200,status.Template(b_f('socket.html')))
+
+class ChatView(SocketView):
+    def onMessage(self,data,*args,**kwargs):
+        for client in self.clients:
+            self.send(client,data)
+    
+    def onExit(self,client_that_left,**kwargs):
+        ip = kwargs.get("state")
+        msg = f'{ip} has left!'
+        for client in self.clients:
+            self.send(client,msg)
+
+    def onConnect(self,client,**kwargs):
+        sock_name = self.get_client_ip(client)
+        msg = f'{sock_name} has joined!'
+        self.accept(client)
+        self.send(client,msg)
+        for client in self.clients:
+            self.send(client,msg)
+        return sock_name
+
+socket_paths = {r'/ws/chat' : ChatView()}
 PATHS = {
     r'/json/?' : JsonView(),
     r'/cookie/?' : CookieSetter(),
@@ -65,9 +82,7 @@ PATHS = {
     r'/static/?' : BinaryFile(),
     r'/post/?' : FormSubmit(),
     r'/video/?' : VideoStream(),
-    r'/send_data/?' : Form()
-}
-
-CORS_DOMAINS=['http://127.0.0.1:5500','http://127.0.0.1:8000','http://google.com']
-server = Server(host='127.0.0.1',socket_paths={},http_paths=PATHS,CORS_DOMAINS=[])
+    r'/send_data/?' : Form(),
+    r'/websocket/?' : WebSocketHandler()}
+server = Server(host='127.0.0.1',socket_paths=socket_paths,http_paths=PATHS,CORS_DOMAINS=['http://localhost:8000','http://localhost:3000'])
 server.start()

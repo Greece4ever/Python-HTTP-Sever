@@ -1,7 +1,9 @@
 import re
 from typing import Tuple
+from ..parsing.http import lazy_read
 
 if __name__ == "__main__":
+    import sys
     from io import StringIO
 
     def replace_str_index(text,index=0,replacement=''):
@@ -24,6 +26,13 @@ if __name__ == "__main__":
         exec(point_of_interest)
         print("\n".join(html))
         print(data[end:])
+        print(len(html))
+
+
+    with open(r"C:\Users\progr\OneDrive\Υπολογιστής\Server\tests\script.html") as f:
+        data = f.read()
+        print(eval_script(data))
+
     
 
     def script_in_chunks(file, buffer_size : int = 1024):
