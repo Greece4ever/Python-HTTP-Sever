@@ -84,5 +84,5 @@ PATHS = {
     r'/video/?' : VideoStream(),
     r'/send_data/?' : Form(),
     r'/websocket/?' : WebSocketHandler()}
-server = Server(host='127.0.0.1',socket_paths=socket_paths,http_paths=PATHS,CORS_DOMAINS=['http://localhost:8000','http://localhost:3000'])
+server = Server(host='192.168.1.2',socket_paths=socket_paths,http_paths=PATHS,CORS_DOMAINS=['http://94.69.46.234:8000','http://localhost:3000'])
 server.start()
